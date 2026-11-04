@@ -4,8 +4,8 @@
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Whats new:|r\n\n"
-  .."          Changes in r1.121026 (Forever Alpha 5):\n\n"
-  .."             * Alpha test version for Forever Beta\n"
+  .."          Changes in r1.041126:\n\n"
+  .."             * World of Warcraft: Forever public release.\n"
   .."\n\n\n\n"
 ;
 
@@ -15,8 +15,8 @@ SMARTBUFF_CREDITS = "|cffffffff"
   .."via my discord server:\n\n"
   .."|cff00e0ffhttps://discord.gg/R6EkZ94TKK\n\n"
   .."|cffffffffIf you want to help support me and the development of this addon then please always download from Curse or use one of the following links:\n\n"
-  .."|cffffffffYoutube: |cff00e0ffhttps://www.youtube/codermik\n"
   .."|cffffffffPayPal.Me: |cff00e0ffhttps://paypal.me/codermik\n\n"
+  .."|cffffffffOriginal author: Aeldra|r (EU-Proudmoore)\n\n"
 ;
 
 -- Weapon types

@@ -6,8 +6,8 @@ if (GetLocale() ~= "ruRU") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Что нового:|r\n\n"
-  .."          Изменения в r1.121026 (Forever Alpha 4):\n\n"
-  .."             * Альфа-тестовая версия для Forever Beta\n"
+  .."          Изменения в r1.041126:\n\n"
+  .."             * Публичный релиз World of Warcraft: Forever.\n"
   .."\n\n\n\n"
 ;
 
@@ -17,8 +17,8 @@ SMARTBUFF_CREDITS = "|cffffffff"
   .."на моём Discord-сервере:\n\n"
   .."|cff00e0ffhttps://discord.gg/R6EkZ94TKK\n\n"
   .."|cffffffffЕсли хотите поддержать разработку аддона, всегда скачивайте с Curse или используйте одну из ссылок:\n\n"
-  .."|cffffffffYoutube: |cff00e0ffhttps://www.youtube/codermik\n"
   .."|cffffffffPayPal.Me: |cff00e0ffhttps://paypal.me/codermik\n\n"
+  .."|cffffffffОригинальный автор: Aeldra|r (EU-Proudmoore)\n\n"
 ;
 
 -- Weapon types

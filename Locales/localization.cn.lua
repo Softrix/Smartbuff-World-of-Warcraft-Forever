@@ -6,8 +6,8 @@ if (GetLocale() ~= "zhCN") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         更新内容：|r\n\n"
-  .."          r1.121026 (Forever Alpha 4) 变更：\n\n"
-  .."             * Forever Beta 的 Alpha 测试版本\n"
+  .."          r1.041126 变更：\n\n"
+  .."             * 《魔兽世界：Forever》公开发布。\n"
   .."\n\n\n\n"
 ;
 
@@ -16,8 +16,8 @@ SMARTBUFF_CREDITS = "|cffffffff"
   .."Speedwaystar 制作。请加入 Discord 获取支持：\n\n"
   .."|cff00e0ffhttps://discord.gg/R6EkZ94TKK\n\n"
   .."|cffffffff若想支持本插件开发，请始终从 Curse 下载，或使用以下链接：\n\n"
-  .."|cffffffffYoutube: |cff00e0ffhttps://www.youtube/codermik\n"
   .."|cffffffffPayPal.Me: |cff00e0ffhttps://paypal.me/codermik\n\n"
+  .."|cffffffff原作者：Aeldra|r (EU-Proudmoore)\n\n"
 ;
 
 -- Weapon types

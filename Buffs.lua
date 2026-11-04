@@ -569,10 +569,13 @@ function SMARTBUFF_InitSpellIDs()
     SMARTBUFF_BFLASKNATURAL1, SMARTBUFF_BFLASKNATURAL2, SMARTBUFF_BFLASKNATURAL3, SMARTBUFF_BFLASKNATURAL4,
   };
 
-  S.LinkStats = { SMARTBUFF_BOK, SMARTBUFF_GBOK, SMARTBUFF_MOTW, SMARTBUFF_GOTW };
+  -- Forever: Kings stacks with Mark/Gift, Wisdom stacks with Arcane Intellect/Brilliance.
+  -- Links stay inside one spell family (normal + greater, or intellect + brilliance).
+  S.LinkStats = { SMARTBUFF_BOK, SMARTBUFF_GBOK };
   S.LinkSta   = { SMARTBUFF_PWFORTITUDE, SMARTBUFF_PRAYERFORTITUDE };
   S.LinkAp    = { SMARTBUFF_BATTLESHOUT, SMARTBUFF_TRUESHOTAURA };
   S.LinkMa    = { SMARTBUFF_BOM, SMARTBUFF_GBOM };
+  S.LinkWis   = { SMARTBUFF_BOW, SMARTBUFF_GBOW };
   S.LinkInt   = { SMARTBUFF_AI, SMARTBUFF_AB };
 end
 
@@ -594,13 +597,13 @@ function SMARTBUFF_InitSpellList()
     SMARTBUFF_BUFFLIST = {
       {SMARTBUFF_GBOM, 60, SMARTBUFF_CONST_GROUP, {52, 60}, nil, S.LinkMa, S.ChainPaladinBlessing},
       {SMARTBUFF_GBOK, 60, SMARTBUFF_CONST_GROUP, {60}, nil, S.LinkStats, S.ChainPaladinBlessing},
-      {SMARTBUFF_GBOW, 60, SMARTBUFF_CONST_GROUP, {54, 60}, nil, S.LinkInt, S.ChainPaladinBlessing},
+      {SMARTBUFF_GBOW, 60, SMARTBUFF_CONST_GROUP, {54, 60}, nil, S.LinkWis, S.ChainPaladinBlessing},
       {SMARTBUFF_GBOS, 60, SMARTBUFF_CONST_GROUP, {60}, nil, S.ChainPaladinBlessing},
       {SMARTBUFF_GBOSAL, 60, SMARTBUFF_CONST_GROUP, {60}, nil, S.ChainPaladinBlessing},
       {SMARTBUFF_GBOL, 60, SMARTBUFF_CONST_GROUP, {60}, nil, S.ChainPaladinBlessing},
       {SMARTBUFF_BOM, 60, SMARTBUFF_CONST_GROUP, {4, 12, 22, 32, 42, 52, 60}, nil, S.LinkMa, S.ChainPaladinBlessing},
       {SMARTBUFF_BOK, 60, SMARTBUFF_CONST_GROUP, {20}, nil, S.LinkStats, S.ChainPaladinBlessing},
-      {SMARTBUFF_BOW, 60, SMARTBUFF_CONST_GROUP, {14, 24, 34, 44, 54, 60}, nil, S.LinkInt, S.ChainPaladinBlessing},
+      {SMARTBUFF_BOW, 60, SMARTBUFF_CONST_GROUP, {14, 24, 34, 44, 54, 60}, nil, S.LinkWis, S.ChainPaladinBlessing},
       {SMARTBUFF_BOS, 60, SMARTBUFF_CONST_GROUP, {30, 40, 50, 60}, nil, S.ChainPaladinBlessing},
       {SMARTBUFF_BOSAL, 60, SMARTBUFF_CONST_GROUP, {26}, nil, S.ChainPaladinBlessing},
       {SMARTBUFF_BOL, 60, SMARTBUFF_CONST_GROUP, {40, 50, 60}, nil, S.ChainPaladinBlessing},
@@ -656,7 +659,7 @@ function SMARTBUFF_InitSpellList()
     SMARTBUFF_BUFFLIST = {
       {SMARTBUFF_MOTW, 30, SMARTBUFF_CONST_GROUP, {1, 10, 20, 30, 40, 50, 60}, "HPET;WPET", S.ChainDruidBuffs, S.ChainDruidBuffs},
       {SMARTBUFF_GOTW, 60, SMARTBUFF_CONST_GROUP, {50, 60}, "HPET;WPET", S.ChainDruidBuffs, S.ChainDruidBuffs},
-      {SMARTBUFF_THORNS, 10, SMARTBUFF_CONST_GROUP, nil, "HPET;WPET"},
+      {SMARTBUFF_THORNS, 10, SMARTBUFF_CONST_GROUP, {6, 14, 24, 34, 44, 54}, "HPET;WPET"},
       {SMARTBUFF_BARKSKIN, 0.25, SMARTBUFF_CONST_FORCESELF},
       {SMARTBUFF_NATURESGRASP, 0.25, SMARTBUFF_CONST_FORCESELF},
       {SMARTBUFF_DRUID_CAT, -1, SMARTBUFF_CONST_SELF},

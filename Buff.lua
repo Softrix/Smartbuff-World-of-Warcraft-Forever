@@ -195,6 +195,7 @@ function SMARTBUFF_ResetBuffTimers()
   local unit = nil;
   local obj = nil;
   local uc = nil;
+  local n = 0;
 
   local cGrp = SG.cGroups;
   for subgroup in pairs(cGrp) do
@@ -339,6 +340,7 @@ function SMARTBUFF_SyncBuffTimers()
   local buffS = nil;
   local unit = nil;
   local uc = nil;
+  local n = 0;
 
   local cGrp = SG.cGroups;
   for subgroup in pairs(cGrp) do
@@ -423,7 +425,7 @@ function SMARTBUFF_IsShapeshifted()
         -- Spell data not loaded - request loading (AllTheThings pattern)
         C_Spell.RequestLoadSpellData(spellId);
       end
-      if (active and castable and spellIinfo ~= SMARTBUFF_DRUID_TREANT) then
+      if (active and castable and not SMARTBUFF_SpellInfoNameMatches(spellIinfo, SMARTBUFF_DRUID_TREANT)) then
         return true, spellIinfo;
       end
     end
@@ -738,7 +740,6 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
         SMARTBUFF_AddMsgD("Exclusive check on " .. spell .. ", current spell = " .. buffnS);
       end
       if (bUsable and cBuff.Type == SMARTBUFF_CONST_SELF and not SMARTBUFF_IsPlayer(unit)) then bUsable = false end
-      if (bUsable and not cBuff.Type == SMARTBUFF_CONST_TRACK and not SMARTBUFF_IsItem(cBuff.Type) and not C_Spell.IsSpellUsable(spellCheck)) then bUsable = false end
       if (bUsable and bs.SelfNot and SMARTBUFF_IsPlayer(unit)) then bUsable = false end
       if (bUsable and cBuff.Params == SG.CheckFishingPole and SMARTBUFF_IsFishingPoleEquiped()) then bUsable = false end
 
@@ -768,12 +769,17 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
       if (bUsable and not (cBuff.Type == SMARTBUFF_CONST_TRACK or SMARTBUFF_IsItem(cBuff.Type))) then
         -- check if you have enough mana/rage/energy to cast
         local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellCheck);
-        if (notEnoughMana) then
+        local buffLabel = getBuffDisplayName(cBuff.BuffS, cBuff.Type) or cBuff.BuffS;
+        if (notEnoughMana or isUsable == false) then
           bUsable = false;
-          SMARTBUFF_AddMsgD("Buff " .. (getBuffDisplayName(cBuff.BuffS, cBuff.Type) or cBuff.BuffS) .. ", not enough mana!");
+          if (notEnoughMana) then
+            SMARTBUFF_AddMsgD("Buff " .. buffLabel .. ", not enough mana!");
+          else
+            SMARTBUFF_AddMsgD("Buff " .. buffLabel .. " is not usable!");
+          end
         elseif (mode ~= 1 and isUsable == nil and buffnS ~= ((type(SMARTBUFF_PWSHIELD) == "table" and SMARTBUFF_PWSHIELD.name) or SMARTBUFF_PWSHIELD)) then
           bUsable = false;
-          SMARTBUFF_AddMsgD("Buff " .. (getBuffDisplayName(cBuff.BuffS, cBuff.Type) or cBuff.BuffS) .. " is not usable!");
+          SMARTBUFF_AddMsgD("Buff " .. buffLabel .. " is not usable!");
         end
       end
 
@@ -1104,20 +1110,22 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
               if (buff and cBuff.Type ~= SMARTBUFF_CONST_TRACK and cBuff.Type ~= SMARTBUFF_CONST_FORCESELF) then
                 --SG.isShapeshifted = true;
                 if (SG.isShapeshifted) then
-                  -- Buff linked to shapeshift form... or not
-                  -- Params is buff[5] in buffs
-                  if (cBuff.Params == SG.sShapename) then
+                  -- Buff linked to shapeshift form... or not.
+                  -- Params and SG.sShapename are spell-info tables from different calls, so compare names.
+                  if (SMARTBUFF_SpellInfoNameMatches(cBuff.Params, SG.sShapename)) then
                     --SMARTBUFF_AddMsgD("Cast " .. buff .. " while shapeshifted");
                   else
-                    if (cBuff.Params == SMARTBUFF_DRUID_CAT) then
+                    if (SMARTBUFF_SpellInfoNameMatches(cBuff.Params, SMARTBUFF_DRUID_CAT)) then
                       buff = nil;
                     end
-                    if (buff and mode ~= 1 and not SG.O.InShapeshift and (SG.sShapename ~= SMARTBUFF_DRUID_MOONKIN and SG.sShapename ~= SMARTBUFF_DRUID_TREANT)) then
+                    if (buff and mode ~= 1 and not SG.O.InShapeshift
+                        and not SMARTBUFF_SpellInfoNameMatches(SG.sShapename, SMARTBUFF_DRUID_MOONKIN)
+                        and not SMARTBUFF_SpellInfoNameMatches(SG.sShapename, SMARTBUFF_DRUID_TREANT)) then
                       --SG.sMsgWarning = SMARTBUFF_MSG_SHAPESHIFT .. ": " .. SG.sShapename;
                       buff = nil;
                     end
                   end
-                elseif (cBuff.Params == SMARTBUFF_DRUID_CAT) then
+                elseif (SMARTBUFF_SpellInfoNameMatches(cBuff.Params, SMARTBUFF_DRUID_CAT)) then
                   buff = nil;
                 end
               end
@@ -1723,18 +1731,54 @@ end
 
 -- check if a spell/reagent could applied on a weapon
 
+-- Inventory rows are stored as "item:ID". Match stone patterns against the item name.
+local function weaponBuffLabel(buff)
+  local itemID = extractItemID and extractItemID(buff);
+  if (itemID and C_Item and C_Item.GetItemInfo) then
+    local itemName = C_Item.GetItemInfo(itemID);
+    if (type(itemName) == "string" and itemName ~= "") then
+      return itemName;
+    end
+  end
+  return buff;
+end
+
+-- List entries are plural ("Swords", "Staves"). Client subtypes are often singular ("Sword", "Staff").
+local function weaponSubtypeMatches(itemSubType, weapon)
+  if (type(itemSubType) ~= "string" or type(weapon) ~= "string" or weapon == "") then
+    return false;
+  end
+  if (string.find(itemSubType, weapon, 1, true)) then
+    return true;
+  end
+  local stem = weapon;
+  if (weapon == "Staves") then
+    stem = "Staff";
+  elseif (string.sub(weapon, -1) == "s" and string.sub(weapon, -2) ~= "ss") then
+    stem = string.sub(weapon, 1, -2);
+  end
+  if (stem ~= weapon and stem ~= "" and string.find(itemSubType, stem, 1, true)) then
+    return true;
+  end
+  return false;
+end
+
 function SMARTBUFF_CanApplyWeaponBuff(buff, slot)
+  local label = weaponBuffLabel(buff);
   local cWeaponTypes = nil;
-  if (string.find(buff, SMARTBUFF_WEAPON_SHARP_PATTERN)) then
+  if (type(label) == "string" and SMARTBUFF_WEAPON_SHARP_PATTERN and string.find(label, SMARTBUFF_WEAPON_SHARP_PATTERN)) then
     cWeaponTypes = SMARTBUFF_WEAPON_SHARP;
-  elseif (string.find(buff, SMARTBUFF_WEAPON_BLUNT_PATTERN)) then
+  elseif (type(label) == "string" and SMARTBUFF_WEAPON_BLUNT_PATTERN and string.find(label, SMARTBUFF_WEAPON_BLUNT_PATTERN)) then
     cWeaponTypes = SMARTBUFF_WEAPON_BLUNT;
   else
     cWeaponTypes = SMARTBUFF_WEAPON_STANDARD;
   end
 
   local itemLink = GetInventoryItemLink("player", slot);
-  local _, _, itemCode = string.find(itemLink, "item:(%d+):");
+  if (not itemLink) then
+    return false;
+  end
+  local _, _, itemCode = string.find(itemLink, "item:(%d+)");
   local itemID = itemCode and tonumber(itemCode);
   local _, _, _, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID);
   if (not itemType and itemID) then
@@ -1749,7 +1793,7 @@ function SMARTBUFF_CanApplyWeaponBuff(buff, slot)
   if (cWeaponTypes and itemSubType) then
     for _, weapon in pairs(cWeaponTypes) do
       --SMARTBUFF_AddMsgD(weapon);
-      if (string.find(itemSubType, weapon)) then
+      if (weaponSubtypeMatches(itemSubType, weapon)) then
         --SMARTBUFF_AddMsgD("Can apply " .. buff .. " on " .. itemSubType);
         return true, weapon;
       end
@@ -1825,6 +1869,24 @@ function SMARTBUFF_UnitBuffByBuffName(target, buffname, filter)
   local expirationTime = tonumber(auraInfo.expirationTime) or 0;
   return spellName, auraInfo.icon, (auraInfo.charges or 0), auraInfo.dispelName,
     duration, expirationTime, auraInfo.sourceUnit;
+end
+
+
+-- Seconds left on an aura that is still present.
+-- A future expiration (expiration > GetTime()) is a real remaining time, so the rebuff window works.
+-- expiration 0 means this client gave no clock time. The aura is still up, so do not treat it as expired
+-- or scroll-zoom stays suppressed after the first successful cast.
+local function auraSecondsRemaining(expiration)
+  local exp = tonumber(expiration) or 0;
+  local now = GetTime();
+  local left = exp - now;
+  if (left > 0) then
+    return left;
+  end
+  if (exp > 0 and exp < 86400) then
+    return exp;
+  end
+  return now;
 end
 
 
@@ -1930,12 +1992,7 @@ function SMARTBUFF_CheckUnitBuffs(unit, buffN, buffT, buffL, buffC)
           SMARTBUFF_AddMsgD("Check linked buff (" .. uname .. "): " .. v);
           buff, icon, count, _, duration, timeleft, caster = SMARTBUFF_UnitBuffByBuffName(unit, v);
           if (buff) then
-            timeleft = (tonumber(timeleft) or 0) - GetTime();
-            if (timeleft > 0) then
-              timeleft = timeleft;
-            else
-              timeleft = GetTime();
-            end
+            timeleft = auraSecondsRemaining(timeleft);
             SMARTBUFF_AddMsgD("Linked buff found: " .. buff .. ", " .. timeleft .. ", " .. icon);
             return nil, n, defBuff, timeleft, count;
           end
@@ -1979,12 +2036,7 @@ function SMARTBUFF_CheckUnitBuffs(unit, buffN, buffT, buffL, buffC)
     SMARTBUFF_AddMsgD("Check default buff (" .. uname .. "): " .. defBuff);
     buff, icon, count, _, duration, timeleft, caster = SMARTBUFF_UnitBuffByBuffName(unit, defBuff);
     if (buff) then
-      timeleft = (tonumber(timeleft) or 0) - GetTime();
-      if (timeleft > 0) then
-        timeleft = timeleft;
-      else
-        timeleft = GetTime();
-      end
+      timeleft = auraSecondsRemaining(timeleft);
       if (SMARTBUFF_IsPlayer(caster)) then
         SMARTBUFF_UpdateBuffDuration(defBuff, duration);
       end
@@ -2012,12 +2064,7 @@ function SMARTBUFF_CheckBuffLink(unit, defBuff, buffT, buffL)
           SMARTBUFF_AddMsgD("Check linked buff (" .. (UnitName(unit) or "?") .. "): " .. linkName);
           buff, icon, count, _, duration, timeleft, caster = SMARTBUFF_UnitBuffByBuffName(unit, linkName);
           if (buff) then
-            timeleft = (tonumber(timeleft) or 0) - GetTime();
-            if (timeleft > 0) then
-              timeleft = timeleft;
-            else
-              timeleft = GetTime();
-            end
+            timeleft = auraSecondsRemaining(timeleft);
             SMARTBUFF_AddMsgD("Linked buff found: " .. buff .. ", " .. timeleft .. ", " .. icon);
             return nil, n, defBuff, timeleft, count;
           end
@@ -2084,12 +2131,7 @@ function SMARTBUFF_CheckBuff(unit, buffName, isMine)
   if (buff) then
     SMARTBUFF_AddMsgD(UnitName(unit) .. " buff found: " .. buff, 0, 1, 0.5);
     if (buff == wantName) then
-      timeleft = (tonumber(timeleft) or 0) - GetTime();
-      if (timeleft > 0) then
-        timeleft = timeleft;
-      else
-        timeleft = GetTime();
-      end
+      timeleft = auraSecondsRemaining(timeleft);
       if (isMine and caster) then
         if (SMARTBUFF_IsPlayer(caster)) then
           return true, timeleft, caster;

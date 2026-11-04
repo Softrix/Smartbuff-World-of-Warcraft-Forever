@@ -124,10 +124,14 @@ end
 
 -- Build CIn list (template order) â†’ filter missing on player â†’ /castsequence macro (first spell = step 1).
 -- Called from REGEN / PLAYER_ALIVE when SG.O.InCombat; empty CIn â†’ nothing stamped.
--- If stamp fails (lockdown, empty, macro too long), clear key attrs when allowed so OOC/normal Check can recover.
+-- If stamp fails because of lockdown, keep the macro written on the last out-of-combat pass.
+-- Empty list or a macro that is too long still clears the key when attributes can be changed.
 function SMARTBUFF_StampInCombatCastsequence()
   local base = SMARTBUFF_BuildInCombatCInEntryList();
   local filtered = SMARTBUFF_FilterInCombatCInEntriesMissingOnPlayer(base);
+  if (InCombatLockdown()) then
+    return;
+  end
   if (SMARTBUFF_EnableInCombatCastsequenceMacroFromEntries(filtered)) then
     return;
   end
@@ -587,11 +591,13 @@ local lastBuffType = "";
 function SMARTBUFF_OnPreClick(self, button, down)
   if (not SG.isInit) then return end
   local mode = 0;
+  local wheel = (button == "MOUSEWHEELUP" or button == "MOUSEWHEELDOWN");
   if (button) then
-    if (button == "MOUSEWHEELUP" or button == "MOUSEWHEELDOWN") then
+    if (wheel) then
       mode = 5;
-      -- New wheel notch (key-down): reset zoom suppression for this gesture
-      if (down) then
+      -- New wheel notch (key-down): reset zoom suppression for this gesture.
+      -- Mousewheel often reports down=true only; also reset when down is omitted.
+      if (down ~= false) then
         SG.scrollSkipZoom = false;
         SG.scrollZoomDone = false;
       end
@@ -742,7 +748,9 @@ function SMARTBUFF_OnPostClick(self, button, down)
       end
       SG.scrollZoomDone = true;
     end
-    if (not down) then
+    -- down=false is the key-up half. down=nil is a wheel click that does not report it.
+    -- Only a real key-down (down==true) keeps the flag until that half's PostClick.
+    if (down ~= true) then
       SG.scrollSkipZoom = false;
       SG.scrollZoomDone = false;
     end

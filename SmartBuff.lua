@@ -10,7 +10,7 @@
 -- and options frame on first load... could be annoying if done too often
 -- What's new is pulled from the SMARTBUFF_WHATSNEW string in localization.en.lua
 -- this is mostly optional, but good for internal housekeeping
-SMARTBUFF_VERSION            = "r1.121026"; -- Forever
+SMARTBUFF_VERSION            = "r1.191026"; -- Forever
 -- Update the NR below to force reload of SB_Buffs on first login
 -- This is now OPTIONAL for most changes - only needed for major logical reworks or large patch changes.
 -- Definition changes (spell IDs, Links, Chain) in buffs.lua no longer require version bumps.
@@ -1181,7 +1181,7 @@ local arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 = ...;
 
     if (SG.O.Toggle) then
       if (SG.O.InCombat) then
-        -- Filtered CIn /castsequence (template order). No CIn buffs enabled â†’ build empty â†’ stamp fails â†’ key cleared.
+        -- Filtered CIn /castsequence (template order). Lockdown keeps the macro stamped out of combat.
         SMARTBUFF_StampInCombatCastsequence();
       else
         -- In-combat option off: clear button so we don't show a stale out-of-combat reminder in combat
@@ -2693,8 +2693,8 @@ function SMARTBUFF_SetBuff(buff, i, ia)
               end
             end
             if (not SG.cBuffs[i].IconS) then
-              -- Fallback: use texture from BuffS (already retrieved above)
-              SG.cBuffs[i].IconS = buffTexture;
+              -- Fallback: texture from BuffS (already retrieved above)
+              SG.cBuffs[i].IconS = texture;
             end
           else
             -- FOOD/SCROLL/POTION types - filter out if item not found
