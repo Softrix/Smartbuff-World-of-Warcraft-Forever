@@ -49,9 +49,10 @@ function SMARTBUFF_PreCheck(mode, force)
     return IsMounted() or IsFlying();
   end
 
-  -- Sitting, eating, or drinking: no splash, sound, chat, or armed cast (a cast would interrupt the meal).
-  local pauseForMeal = SMARTBUFF_IsSitting() or SMARTBUFF_IsPicnic("player");
-  if (pauseForMeal) then
+  -- Actively eating/drinking only: pause so we do not interrupt the meal.
+  -- Mere sitting must not suppress checks (Forever has no UnitStandState; picnic latches isSitting).
+  local pauseForPicnic = SMARTBUFF_IsPicnic("player");
+  if (pauseForPicnic) then
     if (SmartBuffSplashFrame) then
       SMARTBUFF_Splash_Clear();
     end
@@ -63,7 +64,7 @@ function SMARTBUFF_PreCheck(mode, force)
   -- Skip buff check when any of the following are true; only if all are false do we proceed to run buffs.
   if ((mode == 1 and not SG.O.ToggleAuto) or shouldSkipBuffCheckWhenMounted() or LootFrame:IsVisible()
         or UnitOnTaxi("player") or UnitIsDeadOrGhost("player") or UnitIsCorpse("player")
-        or pauseForMeal
+        or pauseForPicnic
         or (mode ~= 1 and SMARTBUFF_IsFishing("player"))
         or (UnitInVehicle("player") or UnitHasVehicleUI("player"))
         --or (mode == 1 and (SG.O.ToggleAutoRest and IsResting()) and knownBool(UnitIsPVP("player")) ~= true)
@@ -101,12 +102,11 @@ function SMARTBUFF_PreCheck(mode, force)
     return false;
   end
 
-  if (UnitAffectingCombat("player")) then
-    SG.isCombat = true;
-    if (SG.O.Debug) then SMARTBUFF_AddMsgD("In combat"); end
-  else
-    SG.isCombat = false;
-    if (SG.O.Debug) then SMARTBUFF_AddMsgD("Out of combat"); end
+  -- Forever may return a secret from UnitAffectingCombat even OOC; secrets are truthy in Lua and
+  -- would latch isCombat / skipChecks, silencing every COut reminder (food included).
+  SG.isCombat = (knownBool(UnitAffectingCombat("player")) == true);
+  if (SG.O.Debug) then
+    SMARTBUFF_AddMsgD(SG.isCombat and "In combat" or "Out of combat");
   end
 
   -- Don't run the check loop until buff list is ready (missing SG.B/Order, or Order has entries but SG.cBuffs wasn't built)
@@ -449,8 +449,18 @@ end
 
 function SMARTBUFF_Check(mode, force)
   -- print("precheck "..tostring(SMARTBUFF_PreCheck(mode, force)))
-  if (SG.IsChecking or not SMARTBUFF_PreCheck(mode, force)) then return; end
+  if (not SMARTBUFF_PreCheck(mode, force)) then return; end
+  -- A Lua error mid-check can leave IsChecking true forever and silence all reminders.
+  if (SG.IsChecking) then
+    local started = SG.tCheckStarted or 0;
+    if ((GetTime() - started) < 3) then
+      return;
+    end
+    SMARTBUFF_AddMsgD("Clearing stuck IsChecking latch");
+    SG.IsChecking = false;
+  end
   SG.IsChecking = true;
+  SG.tCheckStarted = GetTime();
   SG.pendingCastSpellID = nil;
 
   local ct = SG.currentTemplate;
@@ -485,7 +495,7 @@ function SMARTBUFF_Check(mode, force)
   local inPvPInstance = (instanceType == "arena" or instanceType == "pvp");
   local pvPMatchState = inPvPInstance and (C_PvP.GetActiveMatchState() or 0) or 0;
   local pvPMatchActive = (pvPMatchState >= 3);
-  local inCombat = InCombatLockdown() or UnitAffectingCombat("player");
+  local inCombat = InCombatLockdown() or (knownBool(UnitAffectingCombat("player")) == true);
   local skipChecks = (SG.isWoWProjectForever and inCombat)
     or (InCombatLockdown() and not SG.O.InCombat)
     or (inPvPInstance and pvPMatchActive);
@@ -538,6 +548,23 @@ function SMARTBUFF_Check(mode, force)
   local cGrp = SG.cGroups;
   local cOrd = SG.cOrderGrp;
   SG.isMounted = IsMounted() or IsFlying();
+  -- Forever/template edge: if unit lists were wiped without rebuild, still check the player
+  -- (self buffs / food reminders must not silently no-op).
+  local sawAnyUnit = false;
+  if (cGrp) then
+    for _, unitsTbl in pairs(cGrp) do
+      if (type(unitsTbl) == "table") then
+        for _, u in pairs(unitsTbl) do
+          if (u) then sawAnyUnit = true; break; end
+        end
+      end
+      if (sawAnyUnit) then break; end
+    end
+  end
+  if (not sawAnyUnit) then
+    SMARTBUFF_AddSoloSetup();
+    cGrp = SG.cGroups;
+  end
   for _, subgroup in pairs(cOrd) do
     --SMARTBUFF_AddMsgD("Checking subgroup " .. subgroup .. ", " .. GetTime());
     if (cGrp[subgroup] ~= nil or (type(subgroup) == "number" and subgroup == 1)) then
@@ -562,7 +589,7 @@ function SMARTBUFF_Check(mode, force)
             local spellName, actionType, slot, buffType;
             i, actionType, spellName, slot, _, buffType = SMARTBUFF_BuffUnit(unit, subgroup, mode);
 
-            if (i <= 1) then
+            if (i ~= nil and i <= 1) then
               -- Don't surface missing-buff when in combat and SG.O.InCombat disabled (aura check unreliable at combat start)
               if (i == 0 and InCombatLockdown() and not SG.O.InCombat) then
                 -- skip, continue to next unit
@@ -612,8 +639,25 @@ end
 
 
 
--- Unit eligibility for BuffUnit. Any secret Unit* bool â†’ not eligible (skip unit).
+-- Unit eligibility for BuffUnit.
+-- Party/raid: secret Unit* bool → skip (safe).
+-- Player/self: Forever can secret PvP/visible/etc. even OOC; only skip when known-dead/taxi.
+-- That secret→skip on self was silencing food/self reminders (Check ran, never splashed).
 function isUnitEligibleForBuff(unit, playerIsPvP)
+  if (SG.cBlocklist[unit]) then return false; end
+
+  if (unit == "player") then
+    if (knownBool(UnitIsDeadOrGhost("player")) == true) then return false; end
+    if (knownBool(UnitIsCorpse("player")) == true) then return false; end
+    if (knownBool(UnitOnTaxi("player")) == true) then return false; end
+    local unitIsPvP = knownBool(UnitIsPVP("player"));
+    if (unitIsPvP == nil) then return true; end
+    if ((not unitIsPvP and (not playerIsPvP or SG.O.BuffPvP)) or (unitIsPvP and (playerIsPvP or SG.O.BuffPvP))) then
+      return true;
+    end
+    return false;
+  end
+
   if (knownBool(UnitExists(unit)) ~= true) then return false; end
   if (knownBool(UnitIsFriend("player", unit)) ~= true) then return false; end
   if (knownBool(UnitIsDeadOrGhost(unit)) ~= false) then return false; end
@@ -621,7 +665,6 @@ function isUnitEligibleForBuff(unit, playerIsPvP)
   if (knownBool(UnitIsConnected(unit)) ~= true) then return false; end
   if (knownBool(UnitIsVisible(unit)) ~= true) then return false; end
   if (knownBool(UnitOnTaxi(unit)) ~= false) then return false; end
-  if (SG.cBlocklist[unit]) then return false; end
 
   local unitIsPvP = knownBool(UnitIsPVP(unit));
   if (unitIsPvP == nil) then return false; end
@@ -823,7 +866,7 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
               rbTime = SG.O.RebuffTimer;
             end
 
-            SMARTBUFF_AddMsgD(uc .. " " .. getCurrentTemplate());
+            SMARTBUFF_AddMsgD(tostring(uc) .. " " .. tostring(getCurrentTemplate()));
 
             -- Note: Only players (and pets) are valid targets for group buffs; NPCs do not benefit from buffs.
             if (not SMARTBUFF_IsInList(unit, un, bs.IgnoreList) and (((cBuff.Type == SMARTBUFF_CONST_GROUP or cBuff.Type == SMARTBUFF_CONST_ITEMGROUP)
@@ -906,16 +949,28 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
                     end
                   end
 
-                  -- dont attempt to use food while moving or we will waste them.
-                elseif (cBuff.Type == SMARTBUFF_CONST_FOOD and SG.isPlayerMoving == false and not SMARTBUFF_IsPicnic(unit)) then
-                  if (cBuff.Links == SG.TeaItemIds) then
+                  -- Picnic: never remind/cast (would interrupt the meal).
+                  -- Moving: still remind (mode 1) so the player knows to stop and eat; only skip
+                  -- actual use below. Also clear a sticky move latch when live speed is 0.
+                elseif (cBuff.Type == SMARTBUFF_CONST_FOOD) then
+                  if (SG.isPlayerMoving and type(GetUnitSpeed) == "function") then
+                    local speed = GetUnitSpeed("player");
+                    if (type(speed) == "number" and speed == 0) then
+                      SG.isPlayerMoving = false;
+                    end
+                  end
+                  if (SMARTBUFF_IsPicnic(unit)) then
+                    SMARTBUFF_AddMsgD("FOOD skip " .. tostring(buffnS) .. " picnic=true");
+                    buff = nil;
+                  -- TeaItemIds must be a real table: nil==nil was true for every food row and
+                  -- routed them into CheckUnitBuffs(nil), which returns nothing → no splash.
+                  elseif (SG.TeaItemIds and cBuff.Links and cBuff.Links == SG.TeaItemIds) then
                     buff, index, buffname, bt, charges = SMARTBUFF_CheckUnitBuffs(unit, SMARTBUFF_RelaxedAura, cBuff.Type, cBuff.Links, cBuff.Chain);
                   else
-                    -- Satiety is either Well Fed or Hearty Well Fed (localized names from spell info, not ids).
-                    buff, index, buffname, bt, charges = SMARTBUFF_CheckUnitBuffs(unit, SMARTBUFF_WellFedAura, cBuff.Type, cBuff.Links, cBuff.Chain);
-                    if (buff ~= nil and SMARTBUFF_HeartyFedAura and SMARTBUFF_HeartyFedAura.name) then
-                      buff, index, buffname, bt, charges = SMARTBUFF_CheckUnitBuffs(unit, SMARTBUFF_HeartyFedAura, cBuff.Type, cBuff.Links, cBuff.Chain);
-                    end
+                    -- Forever Well Fed uses many spell IDs; strict probe rejects junk auraInfo.
+                    -- Failed/nil lookup returns missing (hungry), never treated as fed.
+                    buff, index, buffname, bt, charges = SMARTBUFF_CheckWellFedBuffs(unit);
+                    SMARTBUFF_AddMsgD("FOOD satiety " .. tostring(buffnS) .. " missing=" .. tostring(buff ~= nil) .. " bt=" .. tostring(bt));
                   end
                 else
                   if (cBuff.Params ~= SG.NIL) then
@@ -1181,12 +1236,17 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
 
                     -- eat food or use scroll or potion
                   elseif (cBuff.Type == SMARTBUFF_CONST_FOOD or cBuff.Type == SMARTBUFF_CONST_SCROLL or cBuff.Type == SMARTBUFF_CONST_POTION) then
-                    local bag, slot, count = SMARTBUFF_FindItem(buffnS, cBuff.Chain or cBuff.Links);
-                    if (count > 0 or bExpire) then
-                      SG.sMsgWarning = "";
-                      return 0, SMARTBUFF_ACTION_ITEM, buffnS, 0, "player", cBuff.Type;
+                    -- Do not consume food while moving (reminder already allowed above).
+                    if (cBuff.Type == SMARTBUFF_CONST_FOOD and SG.isPlayerMoving) then
+                      r = 50;
+                    else
+                      local bag, slot, count = SMARTBUFF_FindItem(buffnS, cBuff.Chain or cBuff.Links);
+                      if (count > 0 or bExpire) then
+                        SG.sMsgWarning = "";
+                        return 0, SMARTBUFF_ACTION_ITEM, buffnS, 0, "player", cBuff.Type;
+                      end
+                      r = 20;
                     end
-                    r = 20;
 
                     -- use item on a unit
                   elseif (cBuff.Type == SMARTBUFF_CONST_ITEMGROUP) then
@@ -2158,10 +2218,49 @@ end
 
 local function mealSpellName(info)
   if (type(info) == "table") then return info.name; end
+  if (type(info) == "string") then return info; end
 end
 
 local function mealSpellId(info)
   if (type(info) == "table") then return info.spellID; end
+  if (type(info) == "number") then return info; end
+end
+
+-- Forever may return a non-nil junk table from GetUnitAuraBySpellID for missing auras.
+-- Require spellId and a future expirationTime — duration alone is not enough (false "fed"/"picnic").
+local function isValidSatietyAuraInfo(auraInfo)
+  if (type(auraInfo) ~= "table") then return false; end
+  local spellId = tonumber(auraInfo.spellId) or tonumber(auraInfo.spellID);
+  if (not spellId or spellId <= 0) then return false; end
+  local exp = tonumber(auraInfo.expirationTime);
+  return exp ~= nil and exp > GetTime();
+end
+
+local function mealMatchesChannel(channelName, channelId, spellRef)
+  if (not spellRef) then return false; end
+  local name = mealSpellName(spellRef);
+  local id = mealSpellId(spellRef);
+  if (channelName and name and channelName == name) then return true; end
+  if (channelId and id and channelId == id) then return true; end
+  return false;
+end
+
+local function mealMatchesAura(unit, spellRef)
+  if (not spellRef) then return false; end
+  local wantName = mealSpellName(spellRef);
+  local id = mealSpellId(spellRef);
+  if (id) then
+    local ok, auraInfo = pcall(C_UnitAuras.GetUnitAuraBySpellID, unit, id);
+    if (ok and isValidSatietyAuraInfo(auraInfo)) then
+      -- Require name match when known so junk ID hits cannot fake Food/Drink.
+      if (not wantName or auraInfo.name == wantName) then return true; end
+    end
+  end
+  if (wantName) then
+    local ok, auraInfo = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, wantName, "HELPFUL");
+    if (ok and isValidSatietyAuraInfo(auraInfo) and auraInfo.name == wantName) then return true; end
+  end
+  return false;
 end
 
 -- Forever has neither the [sitting] macro option nor UnitStandState.
@@ -2172,20 +2271,41 @@ local function noteStand()
   if (SG) then SG.isSitting = false; end
 end
 
+local function noteSit()
+  if (not SG) then return; end
+  SG.isSitting = true;
+end
+
 local function noteSitToggle()
   if (not SG) then return; end
   if (IsFlying() or IsSwimming() or IsMounted()) then return; end
   local now = GetTime();
   if ((now - sitToggleAt) < 0.3) then return; end
   sitToggleAt = now;
-  SG.isSitting = not SG.isSitting;
+  if (SG.isSitting) then
+    noteStand();
+  else
+    noteSit();
+  end
 end
 
 local sitWatch = CreateFrame("Frame");
 sitWatch:RegisterEvent("PLAYER_STARTED_MOVING");
 sitWatch:RegisterEvent("PLAYER_ENTERING_WORLD");
 sitWatch:RegisterEvent("PLAYER_REGEN_DISABLED");
-sitWatch:SetScript("OnEvent", noteStand);
+sitWatch:RegisterEvent("UNIT_SPELLCAST_START");
+sitWatch:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED");
+sitWatch:SetScript("OnEvent", function(_, event, unit)
+  -- Casting stands you on Forever (no UnitStandState). Picnic pause still covers active meals.
+  if (event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_SUCCEEDED") then
+    if (unit ~= "player") then return; end
+  end
+  if (event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_SUCCEEDED"
+      or event == "PLAYER_STARTED_MOVING" or event == "PLAYER_ENTERING_WORLD"
+      or event == "PLAYER_REGEN_DISABLED") then
+    noteStand();
+  end
+end);
 if (type(hooksecurefunc) == "function") then
   if (type(SitStandOrDescendStart) == "function") then
     hooksecurefunc("SitStandOrDescendStart", noteSitToggle);
@@ -2201,7 +2321,7 @@ if (type(hooksecurefunc) == "function") then
       local e = string.upper(emote);
       if (e == "SIT") then
         sitToggleAt = GetTime();
-        SG.isSitting = true;
+        noteSit();
       elseif (e == "STAND") then
         sitToggleAt = GetTime();
         noteStand();
@@ -2224,44 +2344,125 @@ function SMARTBUFF_IsSitting()
   return SG.isSitting and true or false;
 end
 
----True while the unit is channeling or buffed by Food or Drink. Well Fed does not count.
+---True while the unit is channeling or buffed by Food, Drink, or Forever Nutritious Food. Well Fed does not count.
 ---@param unit? string default: "player"
 ---@return boolean
 function SMARTBUFF_IsPicnic(unit)
   if not unit then unit = "player" end
-  local foodName = mealSpellName(SMARTBUFF_FOOD_SPELL);
-  local drinkName = mealSpellName(SMARTBUFF_DRINK_SPELL);
-  local foodId = mealSpellId(SMARTBUFF_FOOD_SPELL);
-  local drinkId = mealSpellId(SMARTBUFF_DRINK_SPELL);
   local channelName, _, _, _, _, _, _, channelId = UnitChannelInfo(unit);
-  local eating = (channelName and ((foodName and channelName == foodName) or (drinkName and channelName == drinkName)))
-    or (channelId and ((foodId and channelId == foodId) or (drinkId and channelId == drinkId)));
+  local eating = mealMatchesChannel(channelName, channelId, SMARTBUFF_FOOD_SPELL)
+    or mealMatchesChannel(channelName, channelId, SMARTBUFF_DRINK_SPELL);
+  if (not eating and SMARTBUFF_NutritiousFoodAuras) then
+    for _, nutri in ipairs(SMARTBUFF_NutritiousFoodAuras) do
+      if (mealMatchesChannel(channelName, channelId, nutri)) then
+        eating = true;
+        break;
+      end
+    end
+  end
   if (not eating) then
-    -- AuraUtil.FindAuraByName calls GetAuraDataBySpellName, which this client does not provide.
-    eating = (foodName and getAuraDataBySpellRef(unit, foodName, "HELPFUL"))
-      or (drinkName and getAuraDataBySpellRef(unit, drinkName, "HELPFUL"));
+    eating = mealMatchesAura(unit, SMARTBUFF_FOOD_SPELL)
+      or mealMatchesAura(unit, SMARTBUFF_DRINK_SPELL);
+  end
+  if (not eating and SMARTBUFF_NutritiousFoodAuras) then
+    for _, nutri in ipairs(SMARTBUFF_NutritiousFoodAuras) do
+      if (mealMatchesAura(unit, nutri)) then
+        eating = true;
+        break;
+      end
+    end
   end
   if (eating) then
-    -- Using food or drink sits you even when the sit key was not pressed.
-    if (unit == "player" and SG) then SG.isSitting = true; end
+    if (unit == "player") then noteSit(); end
     return true;
   end
   return false
 end
 
----Scan localized aura names for "well fed" or "hearty well fed". Currently unused.
+---Find any Forever/classic Well Fed (or Hearty Well Fed) aura on the unit.
+---Rejects junk auraInfo tables from Forever GetUnitAuraBySpellID.
 ---@param unit? string default: "player"
----@return boolean returns `true` if the player is well fed, `false` otherwise
+---@return table|nil auraInfo
+---@return string|nil spellName
+function SMARTBUFF_GetWellFedAuraData(unit)
+  if not unit then unit = "player" end
+  if (SMARTBUFF_WellFedAuras) then
+    for _, ref in ipairs(SMARTBUFF_WellFedAuras) do
+      local spellID = mealSpellId(ref);
+      if (spellID) then
+        local ok, auraInfo = pcall(C_UnitAuras.GetUnitAuraBySpellID, unit, spellID);
+        if (ok and isValidSatietyAuraInfo(auraInfo)) then
+          return auraInfo, mealSpellName(ref) or auraInfo.name;
+        end
+      end
+    end
+  end
+  -- Name fallback when the client supports it (variants share "Well Fed").
+  local nameW = SMARTBUFF_WellFedAura and SMARTBUFF_WellFedAura.name;
+  if (nameW) then
+    local ok, auraInfo = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, nameW, "HELPFUL");
+    if (ok and isValidSatietyAuraInfo(auraInfo)) then
+      return auraInfo, nameW;
+    end
+  end
+  local nameH = SMARTBUFF_HeartyFedAura and SMARTBUFF_HeartyFedAura.name;
+  if (nameH) then
+    local ok, auraInfo = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, nameH, "HELPFUL");
+    if (ok and isValidSatietyAuraInfo(auraInfo)) then
+      return auraInfo, nameH;
+    end
+  end
+  -- Index scan fallback: Forever may lack GetAuraDataBySpellName.
+  -- Exact name only (avoid matching "Well Fed XP Boost"). Entire body pcall'd — secret/odd names must not abort Check.
+  if (C_UnitAuras and C_UnitAuras.GetAuraDataByIndex) then
+    local wantW = nameW and string.lower(nameW) or "well fed";
+    local wantH = nameH and string.lower(nameH) or nil;
+    local foundInfo, foundName = nil, nil;
+    pcall(function()
+      for i = 1, 40 do
+        local ok, auraInfo = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, "HELPFUL");
+        if (not ok or not auraInfo) then break; end
+        if (isValidSatietyAuraInfo(auraInfo) and type(auraInfo.name) == "string") then
+          local n = string.lower(auraInfo.name);
+          if (n == wantW or (wantH and n == wantH)) then
+            foundInfo, foundName = auraInfo, auraInfo.name;
+            break;
+          end
+        end
+      end
+    end);
+    if (foundInfo) then
+      return foundInfo, foundName;
+    end
+  end
+  return nil, nil;
+end
 
+---Same return shape as SMARTBUFF_CheckUnitBuffs: nil buff means satiety present.
+---Failed lookup returns missing (hungry), never silent-fed.
+---@param unit? string default: "player"
+function SMARTBUFF_CheckWellFedBuffs(unit)
+  if not unit then unit = "player" end
+  local defBuff = SMARTBUFF_WellFedAura or SMARTBUFF_FOOD_AURA or "Well Fed";
+  -- Splash/messages need a string; WellFedAura is often a GetSpellInfo table.
+  local defName = (type(defBuff) == "table" and defBuff.name) or defBuff or "Well Fed";
+  local auraInfo, spellName = SMARTBUFF_GetWellFedAuraData(unit);
+  if (auraInfo) then
+    local timeleft = auraSecondsRemaining(auraInfo.expirationTime);
+    local duration = tonumber(auraInfo.duration) or 0;
+    if (duration > 0 and spellName) then
+      SMARTBUFF_UpdateBuffDuration(spellName, duration);
+    end
+    return nil, 0, defName, timeleft, auraInfo.charges or 0;
+  end
+  return defName, nil, nil, nil, nil;
+end
+
+---@param unit? string default: "player"
+---@return boolean
 function SMARTBUFF_IsWellFed(unit)
   if not unit then unit = "player" end
-  local nameW = SMARTBUFF_WellFedAura and SMARTBUFF_WellFedAura.name;
-  local nameH = SMARTBUFF_HeartyFedAura and SMARTBUFF_HeartyFedAura.name;
-  if (nameW and getAuraDataBySpellRef(unit, nameW, "HELPFUL")) or
-      (nameH and getAuraDataBySpellRef(unit, nameH, "HELPFUL")) then
-    return true
-  end
-  return false
+  return SMARTBUFF_GetWellFedAuraData(unit) ~= nil;
 end
 
 

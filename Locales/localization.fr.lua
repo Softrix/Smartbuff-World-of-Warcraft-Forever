@@ -6,8 +6,9 @@ if (GetLocale() ~= "frFR") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Nouveautés :|r\n\n"
-  .."          Changements dans r1.041126 :\n\n"
-  .."             * Sortie publique de World of Warcraft: Forever.\n"
+  .."          Changements dans r1.101126 :\n\n"
+  .."             * Ajout de l'Incube manquant pour le Démoniste.\n"
+  .."             * Correction des rappels de buffs de nourriture.\n"
   .."\n\n\n\n"
 ;
 

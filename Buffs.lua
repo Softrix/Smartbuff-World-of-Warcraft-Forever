@@ -466,6 +466,7 @@ function SMARTBUFF_InitSpellIDs()
   SMARTBUFF_SUMMONFELHUNTER  = GetSpellInfo(691);   -- Summon Felhunter
   SMARTBUFF_SUMMONIMP        = GetSpellInfo(688);   -- Summon Imp
   SMARTBUFF_SUMMONSUCCUBUS   = GetSpellInfo(712);   -- Summon Succubus
+  SMARTBUFF_SUMMONINCUBUS    = GetSpellInfo(713);   -- Summon Incubus
   SMARTBUFF_SUMMONVOIDWALKER = GetSpellInfo(697);   -- Summon Voidwalker
   SMARTBUFF_UNENDINGBREATH   = GetSpellInfo(5697);  -- Unending Breath
   SMARTBUFF_CREATEHS         = GetSpellInfo(6201);  -- Create Healthstone
@@ -508,9 +509,40 @@ function SMARTBUFF_InitSpellIDs()
   SMARTBUFF_WOTFORSAKEN = GetSpellInfo(7744);  -- Will of the Forsaken
   SMARTBUFF_WarStomp    = GetSpellInfo(20549); -- War Stomp
 
-  -- Food / drink auras. Forever well-fed food applies this aura (name match, any rank).
-  SMARTBUFF_WellFedAura = GetSpellInfo(1248421); -- Well Fed
-  SMARTBUFF_FOOD_AURA   = SMARTBUFF_WellFedAura or GetSpellInfo(19705);
+  -- Food / drink auras. Forever Well Fed uses many spell IDs (AP/Int/Str/Stam/...).
+  -- Probe all known IDs; name match is a secondary fallback in Buff.lua.
+  SMARTBUFF_WellFedSpellIDs = {
+    1248406, -- Stamina
+    1248420, -- Agility
+    1248421, -- Intellect
+    1248422, -- Strength
+    1248688, -- Movement speed
+    1249519, -- Attack Power (e.g. Brilliant Smallfish)
+    1249520,
+    1249521,
+    1249523,
+    1319310,
+    19705,   -- Classic Well Fed fallback
+  };
+  SMARTBUFF_WellFedAuras = {};
+  for _, wfId in ipairs(SMARTBUFF_WellFedSpellIDs) do
+    local info = GetSpellInfo(wfId);
+    if (info) then
+      tinsert(SMARTBUFF_WellFedAuras, info);
+    end
+  end
+  SMARTBUFF_WellFedAura = GetSpellInfo(1248421) or SMARTBUFF_WellFedAuras[1] or GetSpellInfo(19705);
+  SMARTBUFF_FOOD_AURA   = SMARTBUFF_WellFedAura;
+  -- Forever eat-while-seated effect only (not Well Fed satiety IDs — those must not pause checks).
+  SMARTBUFF_NutritiousFoodSpellIDs = { 1248383, 1249500, 1249515, 1249516, 1249517, 1249518, };
+  SMARTBUFF_NutritiousFoodAuras = {};
+  for _, nutriId in ipairs(SMARTBUFF_NutritiousFoodSpellIDs) do
+    local info = GetSpellInfo(nutriId);
+    if (info) then
+      tinsert(SMARTBUFF_NutritiousFoodAuras, info);
+    end
+  end
+  SMARTBUFF_NUTRITIOUS_FOOD_SPELL = SMARTBUFF_NutritiousFoodAuras[1] or GetSpellInfo(1248383) or GetSpellInfo(1249500);
   SMARTBUFF_FOOD_SPELL  = GetSpellInfo(433);   -- Food
   SMARTBUFF_DRINK_SPELL = GetSpellInfo(430);   -- Drink
   SMARTBUFF_FISHING     = GetSpellInfo(7620);  -- Fishing
@@ -749,6 +781,7 @@ function SMARTBUFF_InitSpellList()
       {SMARTBUFF_SUMMONFELHUNTER, -1, SMARTBUFF_CONST_SELF, nil, S.CheckPet},
       {SMARTBUFF_SUMMONIMP, -1, SMARTBUFF_CONST_SELF, nil, S.CheckPet},
       {SMARTBUFF_SUMMONSUCCUBUS, -1, SMARTBUFF_CONST_SELF, nil, S.CheckPet},
+      {SMARTBUFF_SUMMONINCUBUS, -1, SMARTBUFF_CONST_SELF, nil, S.CheckPet},
       {SMARTBUFF_SUMMONVOIDWALKER, -1, SMARTBUFF_CONST_SELF, nil, S.CheckPet},
       {SMARTBUFF_CREATEHS, -1, SMARTBUFF_CONST_SELF, nil, S.CheckConjureShard, nil, S.ConjuredLockHealthStones},
       {SMARTBUFF_CREATESOULS, -1, SMARTBUFF_CONST_SELF, nil, S.CheckConjureShard, nil, S.ConjuredLockSoulstones},

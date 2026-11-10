@@ -6,8 +6,9 @@ if (GetLocale() ~= "ruRU") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Что нового:|r\n\n"
-  .."          Изменения в r1.041126:\n\n"
-  .."             * Публичный релиз World of Warcraft: Forever.\n"
+  .."          Изменения в r1.101126:\n\n"
+  .."             * Добавлен отсутствующий инкуб чернокнижника.\n"
+  .."             * Исправлены напоминания о пищевых баффах.\n"
   .."\n\n\n\n"
 ;
 

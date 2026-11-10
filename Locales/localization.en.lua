@@ -4,8 +4,9 @@
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Whats new:|r\n\n"
-  .."          Changes in r1.041126:\n\n"
-  .."             * World of Warcraft: Forever public release.\n"
+  .."          Changes in r1.101126:\n\n"
+  .."             * Added missing Warlock Incubus.\n"
+  .."             * Fixed food buff reminders.\n"
   .."\n\n\n\n"
 ;
 

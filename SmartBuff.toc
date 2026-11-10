@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: SmartBuff |cffffffffForever|r
-## Version: 1.16001
+## Version: 1.041126
 ## Author: |cff20d2ffCodermik & Aeldra|r (EU-Proudmoore)
 ## Contributing Author: |cff20d2ffMrWizard
 ## Notes: Cast the most important buffs on you or party/raid members/pets. Use /sbm for options menu.

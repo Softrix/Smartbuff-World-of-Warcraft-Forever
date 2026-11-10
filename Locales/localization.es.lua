@@ -6,8 +6,9 @@ if (GetLocale() ~= "esES" and GetLocale() ~= "esMX") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Novedades:|r\n\n"
-  .."          Cambios en r1.041126:\n\n"
-  .."             * Lanzamiento público de World of Warcraft: Forever.\n"
+  .."          Cambios en r1.101126:\n\n"
+  .."             * Añadido el Íncubo faltante del Brujo.\n"
+  .."             * Corregidos los recordatorios de buffs de comida.\n"
   .."\n\n\n\n"
 ;
 

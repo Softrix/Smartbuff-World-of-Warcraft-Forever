@@ -6,8 +6,9 @@ if (GetLocale() ~= "zhCN") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         更新内容：|r\n\n"
-  .."          r1.041126 变更：\n\n"
-  .."             * 《魔兽世界：Forever》公开发布。\n"
+  .."          r1.101126 变更：\n\n"
+  .."             * 补充缺失的术士梦魔（Incubus）。\n"
+  .."             * 修复食物增益提醒。\n"
   .."\n\n\n\n"
 ;
 
