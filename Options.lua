@@ -198,8 +198,19 @@ function SMARTBUFF_Options_Init(self)
   SMARTBUFF_AddMsg("/sbm - " .. SMARTBUFF_OFT_MENU, true);
   SG.isInit = true;
 
-  SMARTBUFF_InitMinimapButton();
-  SMARTBUFF_CheckMiniMapButton();
+  -- Bind global options before anything that can error (splash uses SG.OG).
+  if (type(SMARTBUFF_OptionsGlobal) ~= "table") then
+    SMARTBUFF_OptionsGlobal = {};
+    SMARTBUFF_BuffOrderReset();
+  end
+  SG.OG = SMARTBUFF_OptionsGlobal;
+  if (SG.OG.SplashIcon == nil) then SG.OG.SplashIcon = true; end
+  if (SG.OG.SplashMsgShort == nil) then SG.OG.SplashMsgShort = false; end
+  if (SG.OG.FirstStart == nil) then SG.OG.FirstStart = "V0"; end
+
+  -- Minimap button must not abort options init (Forever can lack Texture:UpdateCoord).
+  pcall(SMARTBUFF_InitMinimapButton);
+  pcall(SMARTBUFF_CheckMiniMapButton);
   SMARTBUFF_ShowSAButton();
   SMARTBUFF_Splash_Hide();
   if (SMARTBUFF_PaladinAssign_OnRoster) then SMARTBUFF_PaladinAssign_OnRoster(); end
@@ -211,16 +222,6 @@ function SMARTBUFF_Options_Init(self)
       SMARTBUFF_CLASSES[k] = v;
     end
   end
-
-  -- Show version prompt (What's New) before any rebuild so user always sees it even if rebuild errors
-  if (type(SMARTBUFF_OptionsGlobal) ~= "table") then
-    SMARTBUFF_OptionsGlobal = {};
-    SMARTBUFF_BuffOrderReset();
-  end
-  SG.OG = SMARTBUFF_OptionsGlobal;
-  if (SG.OG.SplashIcon == nil) then SG.OG.SplashIcon = true; end
-  if (SG.OG.SplashMsgShort == nil) then SG.OG.SplashMsgShort = false; end
-  if (SG.OG.FirstStart == nil) then SG.OG.FirstStart = "V0"; end
 
   SMARTBUFF_Splash_ChangeFont(0);
 
@@ -1741,12 +1742,17 @@ function SMARTBUFF_InitMinimapButton()
     ldbIcon:Refresh(MINIMAP_ICON, SG.O.Minimap);
   end
   -- The saved art is the full round button, so drop LibDBIcon's own ring and fill the button.
+  -- Avoid SetButtonIcon/ResetButtonIcon: Forever textures may not keep UpdateCoord and that
+  -- used to error mid-Options_Init and leave the rest of the addon uninitialized.
   ldbIcon:RemoveButtonBorder(MINIMAP_ICON);
   ldbIcon:RemoveButtonBackground(MINIMAP_ICON);
   ldbIcon:SetButtonSize(MINIMAP_ICON, 32);
-  ldbIcon:SetButtonIcon(MINIMAP_ICON, obj.icon, 32, "CENTER", 0, 0);
   local button = ldbIcon:GetMinimapButton(MINIMAP_ICON);
   if (button and button.icon) then
+    if (obj.icon) then button.icon:SetTexture(obj.icon); end
+    button.icon:ClearAllPoints();
+    button.icon:SetPoint("CENTER", 0, 0);
+    button.icon:SetSize(32, 32);
     button.icon:SetTexCoord(0, 1, 0, 1);
     button:HookScript("OnMouseDown", function(self)
       if (self.icon) then self.icon:SetTexCoord(0, 1, 0, 1); end

@@ -4,9 +4,9 @@
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Whats new:|r\n\n"
-  .."          Changes in r1.101126:\n\n"
-  .."             * Added missing Warlock Incubus.\n"
-  .."             * Fixed food buff reminders.\n"
+  .."          Changes in r1.121126:\n\n"
+  .."             * Fixed LibDBIcon related errors under Forever.\n"
+  .."             * Added missing Seal of Fury for Paladin.\n"
   .."\n\n\n\n"
 ;
 

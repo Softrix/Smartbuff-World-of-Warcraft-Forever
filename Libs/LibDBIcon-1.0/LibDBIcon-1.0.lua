@@ -6,7 +6,7 @@
 --
 
 local DBICON10 = "LibDBIcon-1.0"
-local DBICON10_MINOR = 56 -- Bump on changes
+local DBICON10_MINOR = 57 -- Bump on changes
 if not LibStub then error(DBICON10 .. " requires LibStub.") end
 local ldb = LibStub("LibDataBroker-1.1", true)
 if not ldb then error(DBICON10 .. " requires LibDataBroker-1.1.") end
@@ -35,7 +35,13 @@ function lib:IconCallback(event, name, key, value)
 				end
 			end
 		elseif key == "iconCoords" then
-			lib.objects[name].icon:UpdateCoord()
+			local icon = lib.objects[name].icon
+			if type(icon.UpdateCoord) == "function" then
+				icon:UpdateCoord()
+			elseif icon then
+				local coords = lib.objects[name].dataObject.iconCoords or {0, 1, 0, 1}
+				icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+			end
 		elseif key == "iconR" then
 			local _, g, b = lib.objects[name].icon:GetVertexColor()
 			lib.objects[name].icon:SetVertexColor(value, g, b)
@@ -180,14 +186,24 @@ local function onClick(self, b)
 	end
 end
 
+local function safeUpdateCoord(icon)
+	if icon and type(icon.UpdateCoord) == "function" then
+		icon:UpdateCoord()
+	elseif icon then
+		local parent = icon.GetParent and icon:GetParent()
+		local coords = (parent and parent.dataObject and parent.dataObject.iconCoords) or defaultCoords
+		icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	end
+end
+
 local function onMouseDown(self)
 	self.isMouseDown = true
-	self.icon:UpdateCoord()
+	safeUpdateCoord(self.icon)
 end
 
 local function onMouseUp(self)
 	self.isMouseDown = false
-	self.icon:UpdateCoord()
+	safeUpdateCoord(self.icon)
 end
 
 do
@@ -211,7 +227,7 @@ do
 	function onDragStart(self)
 		self:LockHighlight()
 		self.isMouseDown = true
-		self.icon:UpdateCoord()
+		safeUpdateCoord(self.icon)
 		self:SetScript("OnUpdate", onUpdate)
 		isDraggingButton = true
 		lib.tooltip:Hide()
@@ -227,7 +243,7 @@ end
 local function onDragStop(self)
 	self:SetScript("OnUpdate", nil)
 	self.isMouseDown = false
-	self.icon:UpdateCoord()
+	safeUpdateCoord(self.icon)
 	self:UnlockHighlight()
 	isDraggingButton = false
 	for _, button in next, lib.objects do
@@ -275,8 +291,14 @@ local function createButton(name, object, db, customCompartmentIcon)
 	icon:SetTexture(object.icon)
 	local r, g, b = icon:GetVertexColor()
 	icon:SetVertexColor(object.iconR or r, object.iconG or g, object.iconB or b)
-	icon.UpdateCoord = updateCoord
-	icon:UpdateCoord()
+	-- Some clients (Forever) reject custom methods on Texture userdata; fall back to SetTexCoord.
+	pcall(function() icon.UpdateCoord = updateCoord end)
+	if type(icon.UpdateCoord) == "function" then
+		icon:UpdateCoord()
+	else
+		local coords = object.iconCoords or defaultCoords
+		icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	end
 	button.icon = icon
 	lib:ResetButtonIcon(name)
 
@@ -601,7 +623,13 @@ function lib:ResetButtonIcon(name)
 	local button = lib:GetMinimapButton(name)
 	if button.icon then
 		button.icon:SetTexture(button.dataObject.icon)
-		button.icon:UpdateCoord()
+		-- Forever (and some Texture userdata) may not retain custom methods like UpdateCoord.
+		if type(button.icon.UpdateCoord) == "function" then
+			button.icon:UpdateCoord()
+		else
+			local coords = button.dataObject.iconCoords or defaultCoords
+			button.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+		end
 		local r, g, b = button.icon:GetVertexColor()
 		button.icon:SetVertexColor(button.dataObject.iconR or r, button.dataObject.iconG or g, button.dataObject.iconB or b)
 		if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then

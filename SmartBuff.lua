@@ -10,7 +10,7 @@
 -- and options frame on first load... could be annoying if done too often
 -- What's new is pulled from the SMARTBUFF_WHATSNEW string in localization.en.lua
 -- this is mostly optional, but good for internal housekeeping
-SMARTBUFF_VERSION            = "r1.101126"; -- Forever
+SMARTBUFF_VERSION            = "r1.121126"; -- Forever
 -- Update the NR below to force reload of SB_Buffs on first login
 -- This is now OPTIONAL for most changes - only needed for major logical reworks or large patch changes.
 -- Definition changes (spell IDs, Links, Chain) in buffs.lua no longer require version bumps.
@@ -175,6 +175,10 @@ if (type(SMARTBUFF_OptionsGlobal) ~= "table") then
   SMARTBUFF_OptionsGlobal = {};
   SMARTBUFF_OptionsGlobal.FirstStart = "V0";  -- so Options_Init sees version "changed" and pops options + news
 end
+-- Bind early so splash/reminders never see SG.OG == nil if Options_Init errors mid-way.
+SG.OG = SMARTBUFF_OptionsGlobal;
+if (SG.OG.SplashIcon == nil) then SG.OG.SplashIcon = true; end
+if (SG.OG.SplashMsgShort == nil) then SG.OG.SplashMsgShort = false; end
 
 SG.GlobalCd               = 1.5;
 SG.maxSkipCoolDown        = 3;

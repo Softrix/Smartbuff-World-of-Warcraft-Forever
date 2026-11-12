@@ -6,9 +6,9 @@ if (GetLocale() ~= "esES" and GetLocale() ~= "esMX") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Novedades:|r\n\n"
-  .."          Cambios en r1.101126:\n\n"
-  .."             * Añadido el Íncubo faltante del Brujo.\n"
-  .."             * Corregidos los recordatorios de buffs de comida.\n"
+  .."          Cambios en r1.121126:\n\n"
+  .."             * Corregidos errores relacionados con LibDBIcon en Forever.\n"
+  .."             * Añadido el Sello de furia faltante para Paladín.\n"
   .."\n\n\n\n"
 ;
 

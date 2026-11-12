@@ -6,9 +6,9 @@ if (GetLocale() ~= "zhTW") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         更新內容：|r\n\n"
-  .."          r1.101126 變更：\n\n"
-  .."             * 補上缺失的術士夢魔（Incubus）。\n"
-  .."             * 修復食物增益提醒。\n"
+  .."          r1.121126 變更：\n\n"
+  .."             * 修復 Forever 下與 LibDBIcon 相關的錯誤。\n"
+  .."             * 補上缺失的聖騎士憤怒聖印（Seal of Fury）。\n"
   .."\n\n\n\n"
 ;
 

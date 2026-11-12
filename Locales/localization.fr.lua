@@ -6,9 +6,9 @@ if (GetLocale() ~= "frFR") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Nouveautés :|r\n\n"
-  .."          Changements dans r1.101126 :\n\n"
-  .."             * Ajout de l'Incube manquant pour le Démoniste.\n"
-  .."             * Correction des rappels de buffs de nourriture.\n"
+  .."          Changements dans r1.121126 :\n\n"
+  .."             * Correction des erreurs liées à LibDBIcon sous Forever.\n"
+  .."             * Ajout du Sceau de fureur manquant pour le Paladin.\n"
   .."\n\n\n\n"
 ;
 

@@ -1425,22 +1425,26 @@ end
 function SMARTBUFF_SetMissingBuffMessage(target, buff, icon, bCanCharge, nCharges, tBuffTimeLeft, bExpire)
   -- Resolve "item:ID" to display name/link for splash and chat (canonical key is stored; show name to user)
   local displayBuff = (buff and getBuffDisplayName(buff, nil)) or buff;
+  -- Guard: Options_Init used to bind SG.OG late; a mid-init error left it nil and crashed every splash.
+  local og = SG.OG or SMARTBUFF_OptionsGlobal or {};
+  local splashIcon = (og.SplashIcon ~= false);
+  local splashShort = og.SplashMsgShort and true or false;
 
   local f = SmartBuffSplashFrame;
   -- show splash buff message
-  if (f and SG.O.ToggleAutoSplash and not SmartBuffOptionsFrame:IsVisible()) then
+  if (f and SG.O and SG.O.ToggleAutoSplash and not SmartBuffOptionsFrame:IsVisible()) then
     local s;
     local sd = SG.O.SplashDuration;
     local si = "";
 
-    if (SG.OG.SplashIcon and icon) then
+    if (splashIcon and icon) then
       local n = SG.O.SplashIconSize;
       if (n == nil or n <= 0) then
         n = SG.O.CurrentFontSize;
       end
       si = string.format("\124T%s:%d:%d:1:0\124t ", icon, n, n) or "";
     end
-    if (SG.OG.SplashMsgShort and si == "") then si = displayBuff end
+    if (splashShort and si == "") then si = displayBuff end
     if (SG.O.AutoTimer < 4) then
       sd = 1;
       f:Clear();
@@ -1449,7 +1453,7 @@ function SMARTBUFF_SetMissingBuffMessage(target, buff, icon, bCanCharge, nCharge
     f:SetTimeVisible(sd);
     if (not nCharges) then nCharges = 0; end
     if (SG.O.CheckCharges and bCanCharge and nCharges > 0 and nCharges <= SG.O.MinCharges and bExpire) then
-      if (SG.OG.SplashMsgShort) then
+      if (splashShort) then
         s = target .. " > " .. si .. " < " .. format(SMARTBUFF_ABBR_CHARGES_OL, nCharges);
       else
         s = target ..
@@ -1457,7 +1461,7 @@ function SMARTBUFF_SetMissingBuffMessage(target, buff, icon, bCanCharge, nCharge
         " " .. si .. displayBuff .. ": " .. format(ITEM_SPELL_CHARGES, nCharges) .. " " .. SMARTBUFF_MSG_LEFT;
       end
     elseif (bExpire) then
-      if (SG.OG.SplashMsgShort) then
+      if (splashShort) then
         s = target .. " > " .. si .. " < " .. format(SECOND_ONELETTER_ABBR, tBuffTimeLeft);
       else
         s = target ..
@@ -1465,7 +1469,7 @@ function SMARTBUFF_SetMissingBuffMessage(target, buff, icon, bCanCharge, nCharge
         si .. displayBuff .. ": " .. format(SECONDS_ABBR, tBuffTimeLeft) .. " " .. SMARTBUFF_MSG_LEFT;
       end
     else
-      if (SG.OG.SplashMsgShort) then
+      if (splashShort) then
         s = target .. " > " .. si;
       else
         s = target .. " " .. SMARTBUFF_MSG_NEEDS .. " " .. si .. displayBuff;

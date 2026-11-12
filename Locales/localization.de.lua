@@ -6,9 +6,9 @@ if (GetLocale() ~= "deDE") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Neuigkeiten:|r\n\n"
-  .."          Änderungen in r1.101126:\n\n"
-  .."             * Fehlenden Hexenmeister-Inkubus hinzugefügt.\n"
-  .."             * Essensbuff-Erinnerungen behoben.\n"
+  .."          Änderungen in r1.121126:\n\n"
+  .."             * LibDBIcon-bezogene Fehler unter Forever behoben.\n"
+  .."             * Fehlendes Siegel der Wut für Paladine hinzugefügt.\n"
   .."\n\n\n\n"
 ;
 
