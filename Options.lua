@@ -1549,9 +1549,11 @@ end
 
 
 function SMARTBUFF_PS_GetList()
-  if (SG.iLastBuffSetup <= 0) then return {} end
+  if (not SG.iLastBuffSetup or SG.iLastBuffSetup <= 0) then return {} end
+  local buff = SG.cBuffs and SG.cBuffs[SG.iLastBuffSetup];
+  if (not buff) then return {} end
 
-  local name = SG.cBuffs[SG.iLastBuffSetup].BuffS;
+  local name = buff.BuffS;
   if (name) then
     local cBuff = getBuffSettings(name);
     if (cBuff) then

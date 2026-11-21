@@ -4,9 +4,9 @@
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Whats new:|r\n\n"
-  .."          Changes in r1.121126:\n\n"
-  .."             * Fixed LibDBIcon related errors under Forever.\n"
-  .."             * Added missing Seal of Fury for Paladin.\n"
+  .."          Changes in r1.211126:\n\n"
+  .."             * Fixed druid shapeshift bug causing lua errors.\n"
+  .."             * Added Shaman Watershield.\n"
   .."\n\n\n\n"
 ;
 
@@ -265,7 +265,7 @@ SMARTBUFF_GROUPBUFFHELP      = "|cffffffffGroup Buff Configuration|r\n\n"
 SMARTBUFF_MSG_LOADED         = "loaded. Please report any problems on Curse or join discord at discord.gg/R6EkZ94TKK.";
 SMARTBUFF_NOTINTENDEDCLIENT  = "This Forever build of SmartBuff is not intended for this client. Please use the matching Classic Era / Retail package.";
 SMARTBUFF_MSG_NEWVER1        = "|cff00e0ffSmartbuff : |cffffffff There is a new version available, you are using |cffFFFF00";
-SMARTBUFF_MSG_NEWVER2        = "|cffffffff and revision |cffFFFF00r"
+SMARTBUFF_MSG_NEWVER2        = "|cffffffff and revision |cffFFFF00"
 SMARTBUFF_MSG_NEWVER3        = "|cffffffff is currently available for download.  Join Discord for all the latest information at https://discord.gg/R6EkZ94TKK.";
 SMARTBUFF_MSG_DISABLED       = "SmartBuff is disabled!";
 SMARTBUFF_MSG_SUBGROUP       = "You've joined a new subgroup, please check the options!";

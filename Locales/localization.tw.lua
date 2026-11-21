@@ -6,9 +6,9 @@ if (GetLocale() ~= "zhTW") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         更新內容：|r\n\n"
-  .."          r1.121126 變更：\n\n"
-  .."             * 修復 Forever 下與 LibDBIcon 相關的錯誤。\n"
-  .."             * 補上缺失的聖騎士憤怒聖印（Seal of Fury）。\n"
+  .."          r1.211126 變更：\n\n"
+  .."             * 修復德魯伊變形導致的 Lua 錯誤。\n"
+  .."             * 新增薩滿水之盾。\n"
   .."\n\n\n\n"
 ;
 
@@ -244,7 +244,7 @@ SMARTBUFF_GROUPBUFFHELP      = "|cffffffff團隊增益設定|r\n\n"
 SMARTBUFF_MSG_LOADED         = "已載入。請在 Curse 回報問題，或加入 Discord：discord.gg/R6EkZ94TKK。";
 SMARTBUFF_NOTINTENDEDCLIENT  = "此 Forever 版 SmartBuff 不適用於目前用戶端。請使用對應的 Classic Era / 正式服版本。";
 SMARTBUFF_MSG_NEWVER1        = "|cff00e0ffSmartbuff : |cffffffff 有新版本可用，你正在使用 |cffFFFF00";
-SMARTBUFF_MSG_NEWVER2        = "|cffffffff 修訂號 |cffFFFF00r"
+SMARTBUFF_MSG_NEWVER2        = "|cffffffff 修訂號 |cffFFFF00"
 SMARTBUFF_MSG_NEWVER3        = "|cffffffff 現已可下載。加入 Discord 取得最新資訊：https://discord.gg/R6EkZ94TKK。";
 SMARTBUFF_MSG_DISABLED       = "SmartBuff 已停用！";
 SMARTBUFF_MSG_SUBGROUP       = "你已加入新的小隊，請檢查選項！";

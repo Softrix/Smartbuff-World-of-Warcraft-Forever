@@ -6,9 +6,9 @@ if (GetLocale() ~= "esES" and GetLocale() ~= "esMX") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Novedades:|r\n\n"
-  .."          Cambios en r1.121126:\n\n"
-  .."             * Corregidos errores relacionados con LibDBIcon en Forever.\n"
-  .."             * Añadido el Sello de furia faltante para Paladín.\n"
+  .."          Cambios en r1.211126:\n\n"
+  .."             * Corregido un error de forma de druida que provocaba errores de Lua.\n"
+  .."             * Añadido Escudo de agua para Chamán.\n"
   .."\n\n\n\n"
 ;
 
@@ -245,7 +245,7 @@ SMARTBUFF_GROUPBUFFHELP      = "|cffffffffConfiguración de buffs de grupo|r\n\n
 SMARTBUFF_MSG_LOADED         = "cargado. Informa de problemas en Curse o únete a Discord: discord.gg/R6EkZ94TKK.";
 SMARTBUFF_NOTINTENDEDCLIENT  = "Esta versión Forever de SmartBuff no está pensada para este cliente. Usa el paquete Classic Era / Retail correspondiente.";
 SMARTBUFF_MSG_NEWVER1        = "|cff00e0ffSmartbuff : |cffffffff Hay una nueva versión disponible, estás usando |cffFFFF00";
-SMARTBUFF_MSG_NEWVER2        = "|cffffffff y revisión |cffFFFF00r"
+SMARTBUFF_MSG_NEWVER2        = "|cffffffff y revisión |cffFFFF00"
 SMARTBUFF_MSG_NEWVER3        = "|cffffffff está disponible para descargar. Únete a Discord para toda la información: https://discord.gg/R6EkZ94TKK.";
 SMARTBUFF_MSG_DISABLED       = "¡SmartBuff está desactivado!";
 SMARTBUFF_MSG_SUBGROUP       = "Te has unido a un nuevo subgrupo, ¡comprueba las opciones!";

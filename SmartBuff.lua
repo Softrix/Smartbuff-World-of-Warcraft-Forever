@@ -10,7 +10,7 @@
 -- and options frame on first load... could be annoying if done too often
 -- What's new is pulled from the SMARTBUFF_WHATSNEW string in localization.en.lua
 -- this is mostly optional, but good for internal housekeeping
-SMARTBUFF_VERSION            = "r1.121126"; -- Forever
+SMARTBUFF_VERSION            = "r1.211126"; -- Forever
 -- Update the NR below to force reload of SB_Buffs on first login
 -- This is now OPTIONAL for most changes - only needed for major logical reworks or large patch changes.
 -- Definition changes (spell IDs, Links, Chain) in buffs.lua no longer require version bumps.
@@ -136,10 +136,6 @@ SMARTBUFF_SUBTITLE           = "Supports you in casting buffs";
 SMARTBUFF_DESC               = "Cast the most important buffs on you, your tanks, party/raid members/pets";
 SMARTBUFF_VERS_TITLE         = SMARTBUFF_TITLE .. " " .. SMARTBUFF_VERSION;
 SMARTBUFF_OPTIONS_TITLE      = SMARTBUFF_VERS_TITLE .. " Forever ";
-
--- Profession tool slots (Razorstone: same role as INVSLOT_MAINHAND / INVSLOT_OFFHAND for weapon buffs)
-INVSLOT_PROF1_TOOL           = 23;  -- Top main profession tool slot
-INVSLOT_PROF2_TOOL           = 20;  -- Second main profession tool slot
 
 -- Assemble SMARTBUFF_TEMPLATES from generics + instances + custom (localization sets the three parts).
 -- Order matters: generics first, then instances, then custom. Matches Enum.SmartBuffGroup.
@@ -2210,6 +2206,14 @@ function SMARTBUFF_SetBuffs()
   wipe(SG.cBuffs);
   wipe(SG.cBuffIndex);
   SG.numBuffs = 0;
+  -- Buff indices are invalid after wipe; close setup UI to avoid stale iLastBuffSetup crashes.
+  SG.iLastBuffSetup = -1;
+  if (SmartBuff_BuffSetup and SmartBuff_BuffSetup:IsVisible()) then
+    SmartBuff_BuffSetup:Hide();
+  end
+  if (SmartBuff_PlayerSetup and SmartBuff_PlayerSetup:IsVisible()) then
+    SmartBuff_PlayerSetup:Hide();
+  end
 
   for _, buff in pairs(SMARTBUFF_BUFFLIST) do
     n = SMARTBUFF_SetBuff(buff, n, true);
@@ -2564,10 +2568,9 @@ function SMARTBUFF_SetBuff(buff, i, ia)
   if (buff[4] ~= nil) then SG.cBuffs[i].LevelsS = buff[4] else SG.cBuffs[i].LevelsS = nil end
   if (buff[5] ~= nil) then SG.cBuffs[i].Params = buff[5] else SG.cBuffs[i].Params = SG.NIL end
   -- buff[6]=Links, buff[7]=Chain. Chain = exclusivity (one-of-these).
-  -- Links = established groups that act in unexpected ways (e.g. weapon vs profession-tool).
+  -- Links = established groups that act in unexpected ways (e.g. weapon buff groups).
   SG.cBuffs[i].Links = buff[6];
   SG.cBuffs[i].Chain = buff[7];
-  SG.cBuffs[i].IsProfessionTool = SMARTBUFF_IsProfessionToolBuff(SG.cBuffs[i]);
   SG.cBuffs[i].SingleTargetGroup = (buff[8] == "single") and "single" or nil;
 
   if (SG.cBuffs[i].IDS ~= nil) then
@@ -2659,7 +2662,7 @@ function SMARTBUFF_SetBuff(buff, i, ia)
         SG.cBuffs[i] = nil;
         return i;
       end
-      -- For chained/linked items (e.g. Razorstone q1/q2/q3): count only this row's quality so we show each quality the player has
+      -- For chained/linked items: count only this row's quality so we show each quality the player has
       local itemList = SG.cBuffs[i].Chain or SG.cBuffs[i].Links;
       local searchChain = itemList;
       if (itemList and #itemList > 1) then

@@ -6,9 +6,9 @@ if (GetLocale() ~= "ruRU") then return; end
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Что нового:|r\n\n"
-  .."          Изменения в r1.121126:\n\n"
-  .."             * Исправлены ошибки LibDBIcon в Forever.\n"
-  .."             * Добавлена отсутствующая Печать ярости для паладина.\n"
+  .."          Изменения в r1.211126:\n\n"
+  .."             * Исправлен баг смены облика друида, вызывавший ошибки Lua.\n"
+  .."             * Добавлен Водный щит для шамана.\n"
   .."\n\n\n\n"
 ;
 
@@ -245,7 +245,7 @@ SMARTBUFF_GROUPBUFFHELP      = "|cffffffffНастройка групповых 
 SMARTBUFF_MSG_LOADED         = "загружен. Сообщайте о проблемах на Curse или в Discord: discord.gg/R6EkZ94TKK.";
 SMARTBUFF_NOTINTENDEDCLIENT  = "Эта версия Forever SmartBuff не предназначена для этого клиента. Используйте соответствующий пакет Classic Era / Retail.";
 SMARTBUFF_MSG_NEWVER1        = "|cff00e0ffSmartbuff : |cffffffff Доступна новая версия, вы используете |cffFFFF00";
-SMARTBUFF_MSG_NEWVER2        = "|cffffffff и ревизию |cffFFFF00r"
+SMARTBUFF_MSG_NEWVER2        = "|cffffffff и ревизию |cffFFFF00"
 SMARTBUFF_MSG_NEWVER3        = "|cffffffff доступна для скачивания. Присоединяйтесь к Discord за свежей информацией: https://discord.gg/R6EkZ94TKK.";
 SMARTBUFF_MSG_DISABLED       = "SmartBuff отключён!";
 SMARTBUFF_MSG_SUBGROUP       = "Вы присоединились к новой подгруппе, проверьте настройки!";

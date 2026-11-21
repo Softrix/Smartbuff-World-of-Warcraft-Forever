@@ -437,6 +437,7 @@ function SMARTBUFF_InitSpellIDs()
 
   -- Shaman ------------------------------------------------------------------
   SMARTBUFF_LIGHTNINGSHIELD = GetSpellInfo(324);   -- Lightning Shield
+  SMARTBUFF_WATERSHIELD     = GetSpellInfo(408510); -- Water Shield (Forever)
   SMARTBUFF_ROCKBITERW      = GetSpellInfo(8017);  -- Rockbiter Weapon
   SMARTBUFF_FROSTBRANDW     = GetSpellInfo(8033);  -- Frostbrand Weapon
   SMARTBUFF_FLAMETONGUEW    = GetSpellInfo(8024);  -- Flametongue Weapon
@@ -444,7 +445,7 @@ function SMARTBUFF_InitSpellIDs()
   SMARTBUFF_WATERBREATHING  = GetSpellInfo(131);   -- Water Breathing
   SMARTBUFF_WATERWALKING    = GetSpellInfo(546);   -- Water Walking
 
-  S.ChainShamanShield = { SMARTBUFF_LIGHTNINGSHIELD };
+  S.ChainShamanShield = { SMARTBUFF_LIGHTNINGSHIELD, SMARTBUFF_WATERSHIELD };
 
   -- Hunter ------------------------------------------------------------------
   SMARTBUFF_TRUESHOTAURA = GetSpellInfo(19506); -- Trueshot Aura
@@ -744,6 +745,7 @@ function SMARTBUFF_InitSpellList()
   if (SMARTBUFF_PLAYERCLASS == "SHAMAN") then
     SMARTBUFF_BUFFLIST = {
       {SMARTBUFF_LIGHTNINGSHIELD, 10, SMARTBUFF_CONST_SELF, nil, nil, nil, S.ChainShamanShield},
+      {SMARTBUFF_WATERSHIELD, 10, SMARTBUFF_CONST_SELF, {20}, nil, nil, S.ChainShamanShield},
       {SMARTBUFF_WINDFURYW, 5, SMARTBUFF_CONST_WEAPON},
       {SMARTBUFF_FLAMETONGUEW, 5, SMARTBUFF_CONST_WEAPON},
       {SMARTBUFF_FROSTBRANDW, 5, SMARTBUFF_CONST_WEAPON},
