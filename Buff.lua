@@ -1036,12 +1036,17 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
                 -- MH first, then OH: if both need the buff, do not let OH overwrite a missing MH.
                 local skipOffHandWeaponCheck = false;
                 local matchName = (cBuff.Type == SMARTBUFF_CONST_WEAPON);
+                -- WEAPON spells: pass spellID so presence checks are locale-independent.
+                local weaponSpellRef = buffnS;
+                if (matchName and cBuff.IDS) then
+                  weaponSpellRef = { name = buffnS, spellID = cBuff.IDS };
+                end
 
                 if (bs.MH) then
                   iSlot = INVSLOT_MAINHAND;
                   iId = GetInventoryItemID("player", iSlot);
                   if (iId and SMARTBUFF_CanApplyWeaponBuff(buffnS, iSlot)) then
-                    local missing, expiring, secs, nCharges = SMARTBUFF_EvaluateWeaponHand(hasMh, expMh, chMh, iSlot, buffnS, rbTime, cBuff.DurationS, matchName, enchantsMh);
+                    local missing, expiring, secs, nCharges = SMARTBUFF_EvaluateWeaponHand(hasMh, expMh, chMh, iSlot, weaponSpellRef, rbTime, cBuff.DurationS, matchName, enchantsMh);
                     if (nCharges > 1) then cBuff.CanCharge = true; end
                     charges = nCharges;
                     SMARTBUFF_AddMsgD(un .. " (WMH): " .. buffnS .. " missing=" .. tostring(missing) .. " expiring=" .. tostring(expiring) .. " secs=" .. tostring(secs));
@@ -1064,7 +1069,7 @@ function SMARTBUFF_BuffUnit(unit, subgroup, mode, spell)
                   iSlot = INVSLOT_OFFHAND;
                   iId = GetInventoryItemID("player", iSlot);
                   if (iId and SMARTBUFF_CanApplyWeaponBuff(buffnS, iSlot)) then
-                    local missing, expiring, secs, nCharges = SMARTBUFF_EvaluateWeaponHand(hasOh, expOh, chOh, iSlot, buffnS, rbTime, cBuff.DurationS, matchName, enchantsOh);
+                    local missing, expiring, secs, nCharges = SMARTBUFF_EvaluateWeaponHand(hasOh, expOh, chOh, iSlot, weaponSpellRef, rbTime, cBuff.DurationS, matchName, enchantsOh);
                     if (nCharges > 1) then cBuff.CanCharge = true; end
                     charges = nCharges;
                     SMARTBUFF_AddMsgD(un .. " (WOH): " .. buffnS .. " missing=" .. tostring(missing) .. " expiring=" .. tostring(expiring) .. " secs=" .. tostring(secs));
@@ -1486,17 +1491,24 @@ function SMARTBUFF_SetMissingBuffMessage(target, buff, icon, bCanCharge, nCharge
   end
 end
 
--- Parse tooltip duration text (e.g. "2 hr", "30 min") to seconds; returns nil if unparseable.
+-- Parse tooltip duration text to seconds; returns nil if unparseable.
+-- Tokens cover Forever locales (EN hr/min, DE Std/Min, FR/ES h/min, RU ч/мин).
 function SMARTBUFF_ParseTooltipDurationToSeconds(durationText)
   if (not durationText or type(durationText) ~= "string") then
     return nil;
   end
   local sec = 0;
-  local hr = durationText:match("(%d+)%s*hr");
+  local hr = durationText:match("(%d+)%s*[Hh]r")
+    or durationText:match("(%d+)%s*Std")
+    or durationText:match("(%d+)%s*ч")
+    or durationText:match("(%d+)%s*h%s")
+    or durationText:match("(%d+)%s*h%)")
+    or durationText:match("(%d+)%s*h$");
   if (hr) then
     sec = sec + tonumber(hr) * 3600;
   end
-  local min = durationText:match("(%d+)%s*min");
+  local min = durationText:match("(%d+)%s*[Mm]in")
+    or durationText:match("(%d+)%s*мин");
   if (min) then
     sec = sec + tonumber(min) * 60;
   end
@@ -1568,20 +1580,79 @@ function SMARTBUFF_WeaponEnchantCharges(charges)
   return v;
 end
 
--- Spell imbues (Rockbiter, Windfury, Flametongue, Frostbrand) are not always reported as a temp enchant.
--- The weapon tooltip line is the short name ("Rockbiter"), sometimes with "(5 min)".
-function SMARTBUFF_WeaponTooltipImbue(slot, spellName)
-  if (not slot or not spellName or type(spellName) ~= "string") then return false, nil; end
+-- Resolve a localized spell name (and optional ID) from a string, number, or GetSpellInfo table.
+local function resolveWeaponSpellRef(spellRef)
+  if (not spellRef) then return nil, nil; end
+  if (type(spellRef) == "table") then
+    return spellRef.name, spellRef.spellID or spellRef.spellId;
+  end
+  if (type(spellRef) == "number") then
+    local name = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellRef)) or nil;
+    if (not name and GetSpellInfo) then
+      local info = GetSpellInfo(spellRef);
+      name = type(info) == "table" and info.name or info;
+    end
+    return name, spellRef;
+  end
+  if (type(spellRef) == "string") then
+    return spellRef, nil;
+  end
+  return nil, nil;
+end
+
+local function enchantInfoSpellID(info)
+  if (type(info) ~= "table") then return nil; end
+  return tonumber(info.spellID) or tonumber(info.enchantSpellID) or tonumber(info.spellId);
+end
+
+local function spellTextureID(spellID)
+  if (not spellID or not C_Spell or not C_Spell.GetSpellTexture) then return nil; end
+  return C_Spell.GetSpellTexture(spellID);
+end
+
+-- Collect spellIDs + textures for this imbue and every known rank (locale-independent matching).
+local function weaponImbueRankSets(spellRef)
+  local wantName, wantID = resolveWeaponSpellRef(spellRef);
+  local rankIDs, rankIcons = {}, {};
+  local function addID(id)
+    if (not id) then return; end
+    rankIDs[id] = true;
+    local tex = spellTextureID(id);
+    if (tex) then rankIcons[tex] = true; end
+  end
+  addID(wantID);
+  if (wantName and SG.SpellRanks) then
+    local list = SG.SpellRanks[string.lower(wantName)];
+    if (list) then
+      for _, entry in ipairs(list) do
+        addID(entry.spellID);
+      end
+    end
+  end
+  return wantName, wantID, rankIDs, rankIcons;
+end
+
+-- Spell imbues are not always reported as a temp enchant.
+-- Match the full localized spell name from spell ID (no English-only "Weapon" short-name strip).
+function SMARTBUFF_WeaponTooltipImbue(slot, spellRef)
+  if (not slot or not spellRef) then return false, nil; end
   if (not C_TooltipInfo or not C_TooltipInfo.GetInventoryItem) then return false, nil; end
+  local spellName = resolveWeaponSpellRef(spellRef);
+  if (not spellName or type(spellName) ~= "string") then return false, nil; end
   local ok, tip = pcall(C_TooltipInfo.GetInventoryItem, "player", slot);
   if (not ok or not tip or not tip.lines) then return false, nil; end
   local full = spellName:lower();
-  local short = full:gsub("%s+weapon%s*$", "");
+  -- EN-only bonus after full-name miss: "Flametongue Weapon" tip line sometimes shows "Flametongue".
+  local shortEN = full:gsub("%s+weapon%s*$", "");
+  -- DE/other: "Waffe der Flammenzunge" / "Waffe des Windzorns" → try the distinctive tail after der/des/die/dem.
+  local shortDE = full:match("^waffe%s+de[rsnm]?%s+(.+)$") or full:match("^waffe%s+(.+)$");
   for _, line in ipairs(tip.lines) do
     local left = line.leftText or line.leftString or line.leftLabel or "";
     if (type(left) == "string" and left ~= "") then
       local l = left:lower();
-      if (l:find(full, 1, true) or (short ~= "" and short ~= full and l:find(short, 1, true))) then
+      if (l:find(full, 1, true)
+          or (shortEN ~= "" and shortEN ~= full and l:find(shortEN, 1, true))
+          or (shortDE and shortDE ~= "" and shortDE ~= full and l:find(shortDE, 1, true))) then
         local inParens = left:match("%((%d+.-)%)");
         local secs = inParens and SMARTBUFF_ParseTooltipDurationToSeconds(inParens) or nil;
         return true, secs;
@@ -1591,13 +1662,29 @@ function SMARTBUFF_WeaponTooltipImbue(slot, spellName)
   return false, nil;
 end
 
-function SMARTBUFF_PlayerImbueAuraSeconds(spellName)
-  if (not spellName or not getAuraDataBySpellRef) then return false, nil; end
-  local aura = getAuraDataBySpellRef("player", spellName, "HELPFUL");
-  if (not aura) then
-    local short = (type(spellName) == "string") and spellName:gsub("%s+[Ww]eapon%s*$", "") or nil;
-    if (short and short ~= spellName) then
-      aura = getAuraDataBySpellRef("player", short, "HELPFUL");
+-- spellRef: localized name, spellID number, or { name, spellID }. Prefers GetUnitAuraBySpellID.
+function SMARTBUFF_PlayerImbueAuraSeconds(spellRef)
+  if (not spellRef or not getAuraDataBySpellRef) then return false, nil; end
+  local name, spellID = resolveWeaponSpellRef(spellRef);
+  local auraRef = (spellID and { name = name, spellID = spellID }) or name or spellRef;
+  local aura = getAuraDataBySpellRef("player", auraRef, "HELPFUL");
+  -- Try every known rank by spell ID (weapon imbues may register a different rank than cBuff.IDS).
+  if (not aura and name and SG.SpellRanks) then
+    local list = SG.SpellRanks[string.lower(name)];
+    if (list) then
+      for _, entry in ipairs(list) do
+        if (entry.spellID and entry.spellID ~= spellID) then
+          aura = getAuraDataBySpellRef("player", { name = name, spellID = entry.spellID }, "HELPFUL");
+          if (aura) then break; end
+        end
+      end
+    end
+  end
+  -- EN-only bonus: aura may be registered without the trailing "Weapon".
+  if (not aura and type(name) == "string") then
+    local shortEN = name:gsub("%s+[Ww]eapon%s*$", "");
+    if (shortEN ~= "" and shortEN ~= name) then
+      aura = getAuraDataBySpellRef("player", shortEN, "HELPFUL");
     end
   end
   if (not aura) then return false, nil; end
@@ -1610,46 +1697,93 @@ function SMARTBUFF_PlayerImbueAuraSeconds(spellName)
   return true, nil;
 end
 
+-- Forever Mage Comprehension: scroll item ID → imbue spell ref (table or name).
+local function mageImbueSpellRef(itemID)
+  if (not itemID or not SG.MageImbueSpellByItemID) then return nil; end
+  return SG.MageImbueSpellByItemID[itemID];
+end
+
+-- Forever WeaponEnchantInfo has enchantIconID / enchantID, not spellID.
+-- Match this imbue via spell texture (all ranks), optional enchant spellID, aura, then tooltip.
+local function confirmSpellImbuePresent(slot, spellRef, enchants)
+  local _, wantID, rankIDs, rankIcons = weaponImbueRankSets(spellRef);
+
+  if (type(enchants) == "table") then
+    for _, info in ipairs(enchants) do
+      if (type(info) == "table") then
+        local eid = enchantInfoSpellID(info);
+        if (eid and rankIDs[eid]) then
+          return true, SMARTBUFF_WeaponEnchantSeconds(info.timeLeft), SMARTBUFF_WeaponEnchantCharges(info.charges);
+        end
+        -- Primary Forever path: same approach as INV oils (icon), using the spell texture.
+        if (info.enchantIconID and rankIcons[info.enchantIconID]) then
+          return true, SMARTBUFF_WeaponEnchantSeconds(info.timeLeft), SMARTBUFF_WeaponEnchantCharges(info.charges);
+        end
+      end
+    end
+  end
+
+  local auraOn, auraSecs = SMARTBUFF_PlayerImbueAuraSeconds(spellRef);
+  if (auraOn) then
+    return true, auraSecs, -1;
+  end
+  local tipOn, tipSecs = SMARTBUFF_WeaponTooltipImbue(slot, spellRef);
+  if (tipOn) then
+    return true, tipSecs, -1;
+  end
+  return false, nil, -1;
+end
+
 -- missing, expiring, secondsLeft, charges.
 -- A present enchant with 0 or unreadable time is still applied. Rockbiter often reports 0 ms.
-function SMARTBUFF_EvaluateWeaponHand(hasFlag, expiration, rawCharges, slot, spellName, rbTime, durationS, matchName, enchants)
+-- spellRef: item "item:ID" for INV, or name/{name,spellID}/spellID for WEAPON spells.
+function SMARTBUFF_EvaluateWeaponHand(hasFlag, expiration, rawCharges, slot, spellRef, rbTime, durationS, matchName, enchants)
   local has = knownBool(hasFlag);
   local secs = SMARTBUFF_WeaponEnchantSeconds(expiration);
   local charges = SMARTBUFF_WeaponEnchantCharges(rawCharges);
-  local present = (has == true);
+  local present = false;
+  local itemID = extractItemID(spellRef);
 
-  -- Forever can keep a Temporary effect (such as a sharpening stone) and an Imbue
-  -- (such as poison) on the same hand. Match inventory buffs by enchant icon so each
-  -- layer is checked independently without an item-ID-to-enchant-ID table.
-  local itemID = extractItemID(spellName);
-  local itemIcon = itemID and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID);
-  if (itemIcon and type(enchants) == "table") then
-    present = false;
-    for _, info in ipairs(enchants) do
-      if (type(info) == "table" and info.enchantIconID == itemIcon) then
-        present = true;
-        secs = SMARTBUFF_WeaponEnchantSeconds(info.timeLeft);
-        charges = SMARTBUFF_WeaponEnchantCharges(info.charges);
-        break;
+  if (itemID) then
+    -- INV oils/stones/poisons: locale-safe icon match when Forever returns per-slot enchants.
+    present = (has == true);
+    local itemIcon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID);
+    if (itemIcon and type(enchants) == "table") then
+      present = false;
+      for _, info in ipairs(enchants) do
+        if (type(info) == "table" and info.enchantIconID == itemIcon) then
+          present = true;
+          secs = SMARTBUFF_WeaponEnchantSeconds(info.timeLeft);
+          charges = SMARTBUFF_WeaponEnchantCharges(info.charges);
+          break;
+        end
       end
     end
-  end
-
-  if (not present and matchName) then
-    local auraOn, auraSecs = SMARTBUFF_PlayerImbueAuraSeconds(spellName);
-    if (auraOn) then
-      present = true;
-      if (auraSecs and auraSecs > 0) then secs = auraSecs; end
-    else
-      local tipOn, tipSecs = SMARTBUFF_WeaponTooltipImbue(slot, spellName);
-      if (tipOn) then
-        present = true;
-        if (tipSecs and tipSecs > 0) then secs = tipSecs; end
+    -- Forever Mage Comprehension scrolls: parchment item icon ≠ weapon imbue icon.
+    if (not present) then
+      local imbueRef = mageImbueSpellRef(itemID);
+      if (imbueRef) then
+        local on, onSecs, onCharges = confirmSpellImbuePresent(slot, imbueRef, enchants);
+        if (on) then
+          present = true;
+          if (onSecs and onSecs > 0) then secs = onSecs; end
+          if (onCharges and onCharges > 0) then charges = onCharges; end
+        else
+          present = false;
+        end
       end
     end
+  elseif (matchName) then
+    -- WEAPON spell imbues: never treat "any enchant on hand" as this spell.
+    local on, onSecs, onCharges = confirmSpellImbuePresent(slot, spellRef, enchants);
+    present = on;
+    if (onSecs and onSecs > 0) then secs = onSecs; end
+    if (onCharges and onCharges > 0) then charges = onCharges; end
+  else
+    present = (has == true);
   end
 
-  if (has == nil and not present) then
+  if (has == nil and not present and not matchName and not itemID) then
     return false, false, secs, charges;
   end
   if (not present) then
@@ -1678,35 +1812,53 @@ local function weaponBuffLabel(buff)
   return buff;
 end
 
--- List entries are plural ("Swords", "Staves"). Client subtypes are often singular ("Sword", "Staff").
-local function weaponSubtypeMatches(itemSubType, weapon)
-  if (type(itemSubType) ~= "string" or type(weapon) ~= "string" or weapon == "") then
+-- Locale-independent weapon subclass sets (Enum.ItemWeaponSubclass / ItemArmorSubclass).
+local ITEM_CLASS_WEAPON = (Enum and Enum.ItemClass and Enum.ItemClass.Weapon) or 2;
+local ITEM_CLASS_ARMOR = (Enum and Enum.ItemClass and Enum.ItemClass.Armor) or 4;
+local ARMOR_SUBCLASS_SHIELD = (Enum and Enum.ItemArmorSubclass and Enum.ItemArmorSubclass.Shield) or 6;
+
+-- Axes 0/1, Bows 2, Guns 3, Maces 4/5, Polearm 6, Swords 7/8, Staff 10, Fist 13, Dagger 15, Thrown 16, Crossbow 18.
+local WEAPON_SUBCLASS_STANDARD = {
+  [0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
+  [6] = true, [7] = true, [8] = true, [10] = true, [13] = true, [15] = true,
+  [16] = true, [18] = true,
+};
+local WEAPON_SUBCLASS_SHARP = {
+  [0] = true, [1] = true, [6] = true, [7] = true, [8] = true, [15] = true,
+};
+local WEAPON_SUBCLASS_BLUNT = {
+  [4] = true, [5] = true, [10] = true, [13] = true,
+};
+local WEAPON_SUBCLASS_MAGE = {
+  staff = { [10] = true },
+  dagger = { [15] = true },
+  sword = { [7] = true, [8] = true },
+};
+
+local function weaponSubclassAllowed(classID, subclassID, allowed, allowShield)
+  if (allowShield and classID == ITEM_CLASS_ARMOR and subclassID == ARMOR_SUBCLASS_SHIELD) then
+    return true;
+  end
+  if (classID ~= ITEM_CLASS_WEAPON or not subclassID or not allowed) then
     return false;
   end
-  if (string.find(itemSubType, weapon, 1, true)) then
-    return true;
-  end
-  local stem = weapon;
-  if (weapon == "Staves") then
-    stem = "Staff";
-  elseif (string.sub(weapon, -1) == "s" and string.sub(weapon, -2) ~= "ss") then
-    stem = string.sub(weapon, 1, -2);
-  end
-  if (stem ~= weapon and stem ~= "" and string.find(itemSubType, stem, 1, true)) then
-    return true;
-  end
-  return false;
+  return allowed[subclassID] == true;
 end
 
 function SMARTBUFF_CanApplyWeaponBuff(buff, slot)
   local label = weaponBuffLabel(buff);
-  local cWeaponTypes = nil;
-  if (type(label) == "string" and SMARTBUFF_WEAPON_SHARP_PATTERN and string.find(label, SMARTBUFF_WEAPON_SHARP_PATTERN)) then
-    cWeaponTypes = SMARTBUFF_WEAPON_SHARP;
+  local allowed = WEAPON_SUBCLASS_STANDARD;
+  local allowShield = true;
+  local mageItemID = extractItemID and extractItemID(buff);
+  if (mageItemID and SG.MageImbueWeaponKind and SG.MageImbueWeaponKind[mageItemID]) then
+    allowed = WEAPON_SUBCLASS_MAGE[SG.MageImbueWeaponKind[mageItemID]] or WEAPON_SUBCLASS_STANDARD;
+    allowShield = false;
+  elseif (type(label) == "string" and SMARTBUFF_WEAPON_SHARP_PATTERN and string.find(label, SMARTBUFF_WEAPON_SHARP_PATTERN)) then
+    allowed = WEAPON_SUBCLASS_SHARP;
+    allowShield = false;
   elseif (type(label) == "string" and SMARTBUFF_WEAPON_BLUNT_PATTERN and string.find(label, SMARTBUFF_WEAPON_BLUNT_PATTERN)) then
-    cWeaponTypes = SMARTBUFF_WEAPON_BLUNT;
-  else
-    cWeaponTypes = SMARTBUFF_WEAPON_STANDARD;
+    allowed = WEAPON_SUBCLASS_BLUNT;
+    allowShield = false;
   end
 
   local itemLink = GetInventoryItemLink("player", slot);
@@ -1715,24 +1867,14 @@ function SMARTBUFF_CanApplyWeaponBuff(buff, slot)
   end
   local _, _, itemCode = string.find(itemLink, "item:(%d+)");
   local itemID = itemCode and tonumber(itemCode);
-  local _, _, _, _, _, itemType, itemSubType = C_Item.GetItemInfo(itemID);
-  if (not itemType and itemID) then
+  local _, _, _, _, _, _, _, _, _, _, _, classID, subclassID = C_Item.GetItemInfo(itemID);
+  if (not classID and itemID) then
     -- Item data not loaded - request loading (AllTheThings pattern)
     C_Item.RequestLoadItemDataByID(itemID);
   end
 
-  --if (itemType and itemSubType) then
-  --  SMARTBUFF_AddMsgD("Type: " .. itemType .. ", Subtype: " .. itemSubType);
-  --end
-
-  if (cWeaponTypes and itemSubType) then
-    for _, weapon in pairs(cWeaponTypes) do
-      --SMARTBUFF_AddMsgD(weapon);
-      if (weaponSubtypeMatches(itemSubType, weapon)) then
-        --SMARTBUFF_AddMsgD("Can apply " .. buff .. " on " .. itemSubType);
-        return true, weapon;
-      end
-    end
+  if (weaponSubclassAllowed(classID, subclassID, allowed, allowShield)) then
+    return true, subclassID;
   end
   return false;
 end
@@ -1762,11 +1904,19 @@ end
 -- END SMARTBUFF_IsPlayer
 
 
--- Resolve spell name / optional spellID from a string or C_Spell.GetSpellInfo table.
+-- Resolve spell name / optional spellID from a string, number, or C_Spell.GetSpellInfo table.
 function resolveSpellAuraRef(spellRef)
   if (not spellRef) then return nil, nil; end
   if (type(spellRef) == "table") then
-    return spellRef.name, spellRef.spellID;
+    return spellRef.name, spellRef.spellID or spellRef.spellId;
+  end
+  if (type(spellRef) == "number") then
+    local name = (C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(spellRef)) or nil;
+    if (not name and GetSpellInfo) then
+      local info = GetSpellInfo(spellRef);
+      name = type(info) == "table" and info.name or info;
+    end
+    return name, spellRef;
   end
   return spellRef, nil;
 end

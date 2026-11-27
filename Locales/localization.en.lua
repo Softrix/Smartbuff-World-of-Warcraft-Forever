@@ -4,9 +4,10 @@
 
 -- Whats new info
 SMARTBUFF_WHATSNEW = "\n\n|cffffffff         Whats new:|r\n\n"
-  .."          Changes in r1.211126:\n\n"
-  .."             * Fixed druid shapeshift bug causing lua errors.\n"
-  .."             * Added Shaman Watershield.\n"
+  .."          Changes in r1.271126:\n\n"
+  .."             * Fixed Detect Invisibility minimum level.\n"
+  .."             * Added Mage Familiars.\n"
+  .."             * Fixed Shaman weapon buffing & detection.\n"
   .."\n\n\n\n"
 ;
 

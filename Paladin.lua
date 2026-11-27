@@ -1099,6 +1099,9 @@ function SMARTBUFF_PaladinAssign_SetupOptions()
   btn:SetPoint("LEFT", SmartBuffOptionsFrameNews, "RIGHT", 5, 0);
   btn:SetText(SMARTBUFF_PA_OPEN or "Paladin");
   btn:SetScript("OnClick", SMARTBUFF_PaladinAssign_Toggle);
+  if (SMARTBUFF_AttachTooltip and SMARTBUFF_OFTT_PALADINASSIGN) then
+    SMARTBUFF_AttachTooltip(btn, SMARTBUFF_OFTT_PALADINASSIGN);
+  end
   cb:SetShown(true);
   btn:SetShown(true);
   cb:SetChecked(SG.O.PaladinAssign ~= false);

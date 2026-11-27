@@ -1,5 +1,12 @@
 # SmartBuff changes
 
+## r1.271126 - 2026-11-27
+
+- Forever Mage Comprehension scrolls: familiars (Rat / Frog / Cat), Scroll of Comprehension, and weapon imbues (e.g. Imbue Striking, Lesser Flame, Precision). Familiars share a link so one familiar covers the others. Imbues only apply to the correct weapon type (staff / dagger / sword) and detect via imbue spell name when the scroll icon does not match the weapon enchant icon.
+- Magical Awareness from Arcane Censer (Alliance) and Elemental Attractor (Horde): 2-hour Unstable Magic detection buff.
+- Non-English clients: shaman weapon imbues (Flametongue, Windfury, Rockbiter, Frostbrand) and other weapon buffs no longer depend on localized subtype/name strings. Equipped weapons are checked by item class/subclass ID; imbue presence uses spell ID (and full localized tooltip name) instead of English-only "Weapon" short-name matching. Generic "hand has an enchant" no longer skips casting the requested imbue.
+- Weapon imbue detection: Forever enchant info has no spell ID, so presence is matched by enchant icon ↔ spell texture (all known ranks), then aura/tooltip. Stops re-apply spam after a successful cast on non-English clients. Shaman weapon imbue duration set to 60 minutes (Forever).
+
 ## r1.041126 - 2026-11-04 20:37
 
 - Release for World of Warcraft: Forever. This is a big update in terms of file structure, functions, and so on, so it is strongly advised that you completely clear your SmartBuff WTF Lua files if you previously tried a Classic Era version on Forever. As always, join Discord and report any errors you encounter.
